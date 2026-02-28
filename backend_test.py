@@ -323,6 +323,10 @@ class TradeSignalAPITester:
         print("\n📊 Testing Week Overview API...")
         self.test_week_overview()
         
+        # Data Status tests
+        print("\n📊 Testing Data Status API...")
+        self.test_data_status()
+        
         # Print final results
         print("\n" + "=" * 60)
         print("📊 FINAL TEST RESULTS")
