@@ -35,15 +35,17 @@ Build a website that takes high impact news from investing.com and forexfactory 
 - Libraries: Tailwind CSS, Shadcn UI, Lucide icons
 
 ## What's Been Implemented (Feb 28, 2026)
-- [x] Backend API with 3 endpoints (calendar, analyze, week-overview)
+- [x] Backend API with 4 endpoints (calendar, analyze, week-overview, data-status)
 - [x] AI integration with GPT-5.2 for trading analysis
 - [x] Economic calendar with ForexFactory data + sample fallback
+- [x] **Calendar grouped by date** with sticky date headers (e.g., "Mon, Feb 23 (Monday)")
 - [x] Week overview with day-by-day signals
+- [x] **Day card click updates AI Analysis** to show that specific day
+- [x] **Data source indicator** in header (Live Data / Sample Data)
 - [x] Market filters (All, Indices, GBP/USD, EUR/USD)
 - [x] Impact filters (All, High, Medium, Low)
-- [x] Interactive day cards that update AI analysis
-- [x] Professional dark theme UI
-- [x] All tests passing (100% backend, frontend, integration)
+- [x] Professional dark theme UI with formatted dates
+- [x] All tests passing (100% backend, 90%+ frontend)
 
 ## Prioritized Backlog
 ### P0 (Critical)
