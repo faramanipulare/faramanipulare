@@ -119,6 +119,16 @@ const AIAnalysisCard = ({ analysis, loading, onRefresh }) => {
     avoid: "bg-red-500/10"
   };
 
+  // Format date for display
+  const getFormattedDate = () => {
+    try {
+      const date = parseISO(analysis.date);
+      return format(date, "EEEE, MMMM d, yyyy");
+    } catch {
+      return analysis.date;
+    }
+  };
+
   return (
     <div className={`ai-card rounded-xl border bg-zinc-900/50 p-6 ${signalColors[analysis.signal]} signal-${analysis.signal}`} data-testid="ai-analysis-card">
       <div className="flex items-start justify-between mb-6">
@@ -128,7 +138,7 @@ const AIAnalysisCard = ({ analysis, loading, onRefresh }) => {
           </div>
           <div>
             <h2 className="font-heading text-lg font-bold text-zinc-100">AI Analysis</h2>
-            <p className="text-sm text-zinc-500 font-mono">{analysis.date}</p>
+            <p className="text-sm text-indigo-400 font-medium">{getFormattedDate()}</p>
           </div>
         </div>
         <Button 
