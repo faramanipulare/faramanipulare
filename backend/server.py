@@ -86,7 +86,7 @@ async def fetch_forexfactory_events(date_from: str, date_to: str) -> List[dict]:
     events = []
     try:
         # Use JBlanked free API for ForexFactory data
-        url = f"https://www.jblanked.com/news/api/forex-factory/calendar/range/"
+        url = "https://www.jblanked.com/news/api/forex-factory/calendar/range/"
         params = {
             "from": date_from,
             "to": date_to
@@ -167,7 +167,7 @@ async def fetch_investing_events(date_from: str, date_to: str) -> List[dict]:
                             "previous": None,
                             "source": "investing"
                         })
-                    except Exception as row_error:
+                    except Exception:
                         continue
     except Exception as e:
         logger.error(f"Error fetching Investing.com: {e}")
@@ -275,7 +275,7 @@ def generate_rule_based_analysis(events: List[dict], target_date: str) -> Tradin
     else:
         signal = "trade"
         probability = 80 - (len(medium_impact) * 5)
-        summary = f"Low volatility day with minimal high-impact news. Good conditions for trading."
+        summary = "Low volatility day with minimal high-impact news. Good conditions for trading."
         action = "Normal trading with standard risk management"
     
     reasoning = []
