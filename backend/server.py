@@ -156,6 +156,7 @@ async def fetch_forexfactory_events(date_from: str, date_to: str) -> List[dict]:
                     # Update cache
                     calendar_cache["data"] = all_data
                     calendar_cache["last_fetch"] = now
+                    calendar_cache["data_source"] = "live"
                     logger.info(f"Fetched and cached {len(all_data)} events from ForexFactory")
                 else:
                     logger.warning(f"ForexFactory API returned {response.status_code}, using sample data")
@@ -163,12 +164,14 @@ async def fetch_forexfactory_events(date_from: str, date_to: str) -> List[dict]:
                     all_data = generate_sample_calendar_data()
                     calendar_cache["data"] = all_data
                     calendar_cache["last_fetch"] = now
+                    calendar_cache["data_source"] = "sample"
         except Exception as e:
             logger.error(f"Error fetching ForexFactory: {e}")
             # Fallback to sample data
             all_data = generate_sample_calendar_data()
             calendar_cache["data"] = all_data
             calendar_cache["last_fetch"] = now
+            calendar_cache["data_source"] = "sample"
     
     # Filter by date range if specified
     events = []
