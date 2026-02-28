@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, HTTPException, Query
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -6,10 +6,13 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List
+from typing import List, Optional
 import uuid
-from datetime import datetime, timezone
-
+from datetime import datetime, timezone, timedelta
+import httpx
+from bs4 import BeautifulSoup
+import asyncio
+from emergentintegrations.llm.chat import LlmChat, UserMessage
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -25,46 +28,430 @@ app = FastAPI()
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
-# Define Models
-class StatusCheck(BaseModel):
-    model_config = ConfigDict(extra="ignore")  # Ignore MongoDB's _id field
-    
+# Models
+class EconomicEvent(BaseModel):
+    model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    client_name: str
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    date: str
+    time: str
+    currency: str
+    impact: str  # high, medium, low
+    event: str
+    actual: Optional[str] = None
+    forecast: Optional[str] = None
+    previous: Optional[str] = None
+    source: str  # forexfactory or investing
 
-class StatusCheckCreate(BaseModel):
-    client_name: str
+class TradingSignal(BaseModel):
+    date: str
+    signal: str  # trade, caution, avoid
+    probability: int  # 0-100
+    summary: str
+    reasoning: List[str]
+    high_impact_events: List[str]
+    recommended_action: str
 
-# Add your routes to the router instead of directly to app
+class DayAnalysis(BaseModel):
+    date: str
+    day_name: str
+    signal: str
+    probability: int
+    event_count: int
+    high_impact_count: int
+
+class WeekOverview(BaseModel):
+    week_start: str
+    week_end: str
+    days: List[DayAnalysis]
+    overall_signal: str
+    best_trading_days: List[str]
+    avoid_days: List[str]
+
+# Currency mapping for filtering
+RELEVANT_CURRENCIES = {
+    "indices": ["USD", "US", "DJI", "SPX", "NDX", "DAX", "FTSE", "CAC", "ALL"],
+    "gbpusd": ["GBP", "USD"],
+    "eurusd": ["EUR", "USD"]
+}
+
+async def fetch_forexfactory_events(date_from: str, date_to: str) -> List[dict]:
+    """Fetch economic calendar from ForexFactory via JBlanked API"""
+    events = []
+    try:
+        # Use JBlanked free API for ForexFactory data
+        url = f"https://www.jblanked.com/news/api/forex-factory/calendar/range/"
+        params = {
+            "from": date_from,
+            "to": date_to
+        }
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(url, params=params)
+            if response.status_code == 200:
+                data = response.json()
+                for item in data:
+                    impact = "low"
+                    if item.get("impact", "").lower() in ["high", "red"]:
+                        impact = "high"
+                    elif item.get("impact", "").lower() in ["medium", "orange"]:
+                        impact = "medium"
+                    
+                    events.append({
+                        "id": str(uuid.uuid4()),
+                        "date": item.get("date", ""),
+                        "time": item.get("time", ""),
+                        "currency": item.get("country", item.get("currency", "")),
+                        "impact": impact,
+                        "event": item.get("title", item.get("event", "")),
+                        "actual": item.get("actual"),
+                        "forecast": item.get("forecast"),
+                        "previous": item.get("previous"),
+                        "source": "forexfactory"
+                    })
+    except Exception as e:
+        logger.error(f"Error fetching ForexFactory: {e}")
+    
+    return events
+
+async def fetch_investing_events(date_from: str, date_to: str) -> List[dict]:
+    """Fetch economic calendar from Investing.com via scraping"""
+    events = []
+    try:
+        # Scrape Investing.com calendar
+        url = "https://www.investing.com/economic-calendar/"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5"
+        }
+        
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+            response = await client.get(url, headers=headers)
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+                
+                # Parse calendar rows
+                rows = soup.find_all('tr', class_='js-event-item')
+                for row in rows[:50]:  # Limit to first 50 events
+                    try:
+                        time_elem = row.find('td', class_='time')
+                        currency_elem = row.find('td', class_='flagCur')
+                        event_elem = row.find('td', class_='event')
+                        
+                        # Get impact from bull icons
+                        impact = "low"
+                        impact_elem = row.find('td', class_='sentiment')
+                        if impact_elem:
+                            bulls = impact_elem.find_all('i', class_='grayFullBullishIcon')
+                            if len(bulls) >= 3:
+                                impact = "high"
+                            elif len(bulls) == 2:
+                                impact = "medium"
+                        
+                        events.append({
+                            "id": str(uuid.uuid4()),
+                            "date": date_from,
+                            "time": time_elem.text.strip() if time_elem else "",
+                            "currency": currency_elem.text.strip() if currency_elem else "",
+                            "impact": impact,
+                            "event": event_elem.text.strip() if event_elem else "",
+                            "actual": None,
+                            "forecast": None,
+                            "previous": None,
+                            "source": "investing"
+                        })
+                    except Exception as row_error:
+                        continue
+    except Exception as e:
+        logger.error(f"Error fetching Investing.com: {e}")
+    
+    return events
+
+async def get_ai_analysis(events: List[dict], target_date: str) -> TradingSignal:
+    """Use GPT-5.2 to analyze trading conditions for a given date"""
+    api_key = os.environ.get('EMERGENT_LLM_KEY')
+    
+    if not api_key:
+        # Return default analysis if no API key
+        return generate_rule_based_analysis(events, target_date)
+    
+    try:
+        # Filter events for the target date
+        date_events = [e for e in events if target_date in e.get("date", "")]
+        
+        # Build context for AI
+        high_impact = [e for e in date_events if e.get("impact") == "high"]
+        
+        event_summary = "\n".join([
+            f"- {e.get('time', 'TBA')} | {e.get('currency', 'N/A')} | {e.get('event', 'Unknown')} | Impact: {e.get('impact', 'low')}"
+            for e in date_events[:20]
+        ])
+        
+        prompt = f"""You are a professional forex and indices trading analyst. Analyze the following economic calendar events for {target_date} and provide trading recommendations.
+
+Focus on: Indices (US30, NAS100, SPX500, DAX, FTSE), GBPUSD, and EURUSD.
+
+Economic Events for {target_date}:
+{event_summary if event_summary else "No events scheduled"}
+
+High Impact Events Count: {len(high_impact)}
+
+Based on these events, provide:
+1. Overall trading signal: TRADE (green - good day to trade), CAUTION (yellow - trade with reduced risk), or AVOID (red - stay out)
+2. Probability score (0-100) for successful trading
+3. Brief summary (1-2 sentences)
+4. 3 key reasoning points
+5. Recommended action
+
+Respond in this exact JSON format:
+{{
+    "signal": "trade|caution|avoid",
+    "probability": 75,
+    "summary": "Brief market outlook",
+    "reasoning": ["point 1", "point 2", "point 3"],
+    "recommended_action": "Specific recommendation"
+}}"""
+
+        chat = LlmChat(
+            api_key=api_key,
+            session_id=f"analysis-{target_date}-{uuid.uuid4()}",
+            system_message="You are a professional forex and indices trading analyst. Provide concise, actionable analysis based on economic calendar events. Always respond in valid JSON format."
+        ).with_model("openai", "gpt-5.2")
+        
+        user_message = UserMessage(text=prompt)
+        response = await chat.send_message(user_message)
+        
+        # Parse the JSON response
+        import json
+        # Clean up response - find JSON in the response
+        response_text = response.strip()
+        if "```json" in response_text:
+            response_text = response_text.split("```json")[1].split("```")[0]
+        elif "```" in response_text:
+            response_text = response_text.split("```")[1].split("```")[0]
+        
+        analysis = json.loads(response_text)
+        
+        return TradingSignal(
+            date=target_date,
+            signal=analysis.get("signal", "caution"),
+            probability=min(100, max(0, int(analysis.get("probability", 50)))),
+            summary=analysis.get("summary", "Analysis unavailable"),
+            reasoning=analysis.get("reasoning", [])[:3],
+            high_impact_events=[e.get("event", "") for e in high_impact[:5]],
+            recommended_action=analysis.get("recommended_action", "Trade with caution")
+        )
+        
+    except Exception as e:
+        logger.error(f"AI analysis error: {e}")
+        return generate_rule_based_analysis(events, target_date)
+
+def generate_rule_based_analysis(events: List[dict], target_date: str) -> TradingSignal:
+    """Fallback rule-based analysis when AI is unavailable"""
+    date_events = [e for e in events if target_date in e.get("date", "")]
+    high_impact = [e for e in date_events if e.get("impact") == "high"]
+    medium_impact = [e for e in date_events if e.get("impact") == "medium"]
+    
+    # Simple rule-based scoring
+    high_count = len(high_impact)
+    
+    if high_count >= 4:
+        signal = "avoid"
+        probability = 25
+        summary = f"High volatility expected with {high_count} major economic releases. Consider staying out of the market."
+        action = "Avoid trading or significantly reduce position sizes"
+    elif high_count >= 2:
+        signal = "caution"
+        probability = 55
+        summary = f"Moderate volatility expected with {high_count} high-impact events. Trade with reduced risk."
+        action = "Trade with smaller position sizes and wider stops"
+    else:
+        signal = "trade"
+        probability = 80 - (len(medium_impact) * 5)
+        summary = f"Low volatility day with minimal high-impact news. Good conditions for trading."
+        action = "Normal trading with standard risk management"
+    
+    reasoning = []
+    if high_count > 0:
+        reasoning.append(f"{high_count} high-impact economic event(s) scheduled")
+    if len(medium_impact) > 0:
+        reasoning.append(f"{len(medium_impact)} medium-impact event(s) may cause price fluctuations")
+    if len(date_events) == 0:
+        reasoning.append("No major economic events scheduled - lower volatility expected")
+    else:
+        reasoning.append(f"Total of {len(date_events)} events on the calendar")
+    
+    return TradingSignal(
+        date=target_date,
+        signal=signal,
+        probability=max(0, min(100, probability)),
+        summary=summary,
+        reasoning=reasoning[:3],
+        high_impact_events=[e.get("event", "") for e in high_impact[:5]],
+        recommended_action=action
+    )
+
+# API Routes
 @api_router.get("/")
 async def root():
-    return {"message": "Hello World"}
+    return {"message": "TradeSignal AI API", "status": "operational"}
 
-@api_router.post("/status", response_model=StatusCheck)
-async def create_status_check(input: StatusCheckCreate):
-    status_dict = input.model_dump()
-    status_obj = StatusCheck(**status_dict)
+@api_router.get("/calendar", response_model=List[EconomicEvent])
+async def get_calendar(
+    date_from: str = Query(default=None, description="Start date YYYY-MM-DD"),
+    date_to: str = Query(default=None, description="End date YYYY-MM-DD"),
+    market: str = Query(default="all", description="Market filter: all, indices, gbpusd, eurusd"),
+    impact: str = Query(default="all", description="Impact filter: all, high, medium, low")
+):
+    """Get combined economic calendar from ForexFactory and Investing.com"""
+    # Default to current week
+    today = datetime.now(timezone.utc)
+    if not date_from:
+        # Start from Monday of current week
+        start_of_week = today - timedelta(days=today.weekday())
+        date_from = start_of_week.strftime("%Y-%m-%d")
+    if not date_to:
+        # End on Friday of current week
+        end_of_week = today + timedelta(days=(4 - today.weekday()))
+        date_to = end_of_week.strftime("%Y-%m-%d")
     
-    # Convert to dict and serialize datetime to ISO string for MongoDB
-    doc = status_obj.model_dump()
-    doc['timestamp'] = doc['timestamp'].isoformat()
+    # Fetch from both sources concurrently
+    ff_events, inv_events = await asyncio.gather(
+        fetch_forexfactory_events(date_from, date_to),
+        fetch_investing_events(date_from, date_to)
+    )
     
-    _ = await db.status_checks.insert_one(doc)
-    return status_obj
+    all_events = ff_events + inv_events
+    
+    # Filter by market/currency
+    if market != "all" and market in RELEVANT_CURRENCIES:
+        currencies = RELEVANT_CURRENCIES[market]
+        all_events = [
+            e for e in all_events 
+            if any(c.lower() in e.get("currency", "").lower() for c in currencies)
+        ]
+    
+    # Filter by impact
+    if impact != "all":
+        all_events = [e for e in all_events if e.get("impact") == impact]
+    
+    # Convert to EconomicEvent models
+    events = []
+    for e in all_events:
+        try:
+            events.append(EconomicEvent(**e))
+        except Exception as err:
+            logger.warning(f"Error parsing event: {err}")
+    
+    # Sort by date and time
+    events.sort(key=lambda x: (x.date, x.time))
+    
+    return events
 
-@api_router.get("/status", response_model=List[StatusCheck])
-async def get_status_checks():
-    # Exclude MongoDB's _id field from the query results
-    status_checks = await db.status_checks.find({}, {"_id": 0}).to_list(1000)
+@api_router.get("/analyze", response_model=TradingSignal)
+async def analyze_day(
+    date: str = Query(default=None, description="Target date YYYY-MM-DD")
+):
+    """Get AI-powered trading analysis for a specific date"""
+    if not date:
+        date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     
-    # Convert ISO string timestamps back to datetime objects
-    for check in status_checks:
-        if isinstance(check['timestamp'], str):
-            check['timestamp'] = datetime.fromisoformat(check['timestamp'])
+    # Fetch events for the date
+    events = await fetch_forexfactory_events(date, date)
+    inv_events = await fetch_investing_events(date, date)
+    all_events = events + inv_events
     
-    return status_checks
+    # Get AI analysis
+    analysis = await get_ai_analysis(all_events, date)
+    
+    return analysis
+
+@api_router.get("/week-overview", response_model=WeekOverview)
+async def get_week_overview(
+    week_offset: int = Query(default=0, description="Week offset from current week")
+):
+    """Get trading overview for an entire week"""
+    today = datetime.now(timezone.utc)
+    
+    # Calculate week start (Monday)
+    week_start = today - timedelta(days=today.weekday()) + timedelta(weeks=week_offset)
+    week_end = week_start + timedelta(days=4)  # Friday
+    
+    date_from = week_start.strftime("%Y-%m-%d")
+    date_to = week_end.strftime("%Y-%m-%d")
+    
+    # Fetch all events for the week
+    ff_events, inv_events = await asyncio.gather(
+        fetch_forexfactory_events(date_from, date_to),
+        fetch_investing_events(date_from, date_to)
+    )
+    all_events = ff_events + inv_events
+    
+    # Analyze each day
+    days = []
+    best_days = []
+    avoid_days = []
+    day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+    
+    for i in range(5):
+        day_date = (week_start + timedelta(days=i)).strftime("%Y-%m-%d")
+        day_events = [e for e in all_events if day_date in e.get("date", "")]
+        high_impact = [e for e in day_events if e.get("impact") == "high"]
+        
+        # Quick analysis without full AI call
+        high_count = len(high_impact)
+        if high_count >= 4:
+            signal = "avoid"
+            probability = 25
+            avoid_days.append(day_names[i])
+        elif high_count >= 2:
+            signal = "caution"
+            probability = 55
+        else:
+            signal = "trade"
+            probability = 80 - (len([e for e in day_events if e.get("impact") == "medium"]) * 5)
+            if probability >= 70:
+                best_days.append(day_names[i])
+        
+        days.append(DayAnalysis(
+            date=day_date,
+            day_name=day_names[i],
+            signal=signal,
+            probability=max(0, min(100, probability)),
+            event_count=len(day_events),
+            high_impact_count=high_count
+        ))
+    
+    # Calculate overall signal
+    avoid_count = len([d for d in days if d.signal == "avoid"])
+    caution_count = len([d for d in days if d.signal == "caution"])
+    
+    if avoid_count >= 3:
+        overall = "avoid"
+    elif avoid_count + caution_count >= 3:
+        overall = "caution"
+    else:
+        overall = "trade"
+    
+    return WeekOverview(
+        week_start=date_from,
+        week_end=date_to,
+        days=days,
+        overall_signal=overall,
+        best_trading_days=best_days[:3],
+        avoid_days=avoid_days
+    )
+
+@api_router.get("/health")
+async def health_check():
+    return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 # Include the router in the main app
 app.include_router(api_router)
@@ -76,13 +463,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
