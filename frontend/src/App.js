@@ -86,7 +86,6 @@ const Header = ({ dataStatus }) => (
             {dataStatus?.is_live ? "Live Data" : "Sample Data"}
           </span>
         </div>
-        </div>
       </div>
     </div>
   </header>
