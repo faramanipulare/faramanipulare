@@ -338,8 +338,8 @@ async def fetch_trading_economics_events(date_from: str, date_to: str) -> List[d
     return events
 
 async def get_ai_analysis(events: List[dict], target_date: str) -> TradingSignal:
-    """Use GPT-5.2 to analyze trading conditions for a given date"""
-    api_key = os.environ.get('EMERGENT_LLM_KEY')
+    """Use Groq (Llama 3.3 70B) to analyze trading conditions for a given date"""
+    api_key = os.environ.get('GROQ_API_KEY')
     
     if not api_key:
         # Return default analysis if no API key
@@ -373,7 +373,7 @@ Based on these events, provide:
 4. 3 key reasoning points
 5. Recommended action
 
-Respond in this exact JSON format:
+Respond ONLY with this exact JSON format, no other text:
 {{
     "signal": "trade|caution|avoid",
     "probability": 75,
@@ -382,19 +382,28 @@ Respond in this exact JSON format:
     "recommended_action": "Specific recommendation"
 }}"""
 
-        chat = LlmChat(
-            api_key=api_key,
-            session_id=f"analysis-{target_date}-{uuid.uuid4()}",
-            system_message="You are a professional forex and indices trading analyst. Provide concise, actionable analysis based on economic calendar events. Always respond in valid JSON format."
-        ).with_model("openai", "gpt-5.2")
+        # Use Groq client
+        groq_client = Groq(api_key=api_key)
         
-        user_message = UserMessage(text=prompt)
-        response = await chat.send_message(user_message)
+        chat_completion = groq_client.chat.completions.create(
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a professional forex and indices trading analyst. Provide concise, actionable analysis based on economic calendar events. Always respond in valid JSON format only, no markdown."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            model="llama-3.3-70b-versatile",
+            temperature=0.3,
+            max_tokens=500
+        )
         
-        # Parse the JSON response
-        import json
+        response_text = chat_completion.choices[0].message.content.strip()
+        
         # Clean up response - find JSON in the response
-        response_text = response.strip()
         if "```json" in response_text:
             response_text = response_text.split("```json")[1].split("```")[0]
         elif "```" in response_text:
