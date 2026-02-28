@@ -515,10 +515,12 @@ async def analyze_day(
     if not date:
         date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     
-    # Fetch events for the date
-    events = await fetch_forexfactory_events(date, date)
-    inv_events = await fetch_investing_events(date, date)
-    all_events = events + inv_events
+    # Fetch events for the date from both sources
+    ff_events, te_events = await asyncio.gather(
+        fetch_forexfactory_events(date, date),
+        fetch_trading_economics_events(date, date)
+    )
+    all_events = ff_events + te_events
     
     # Get AI analysis
     analysis = await get_ai_analysis(all_events, date)
@@ -539,10 +541,11 @@ async def get_week_overview(
     date_from = week_start.strftime("%Y-%m-%d")
     date_to = week_end.strftime("%Y-%m-%d")
     
-    # Fetch all events for the week
-    ff_events, inv_events = await asyncio.gather(
+    # Fetch all events for the week from both sources
+    ff_events, te_events = await asyncio.gather(
         fetch_forexfactory_events(date_from, date_to),
-        fetch_investing_events(date_from, date_to)
+        fetch_trading_economics_events(date_from, date_to)
+    )
     )
     all_events = ff_events + inv_events
     
