@@ -252,71 +252,77 @@ def generate_sample_calendar_data() -> List[dict]:
     logger.info(f"Generated {len(events)} sample calendar events")
     return events
 
-async def fetch_investing_events(date_from: str, date_to: str) -> List[dict]:
-    """Fetch economic calendar from Investing.com via investpy or web scraping"""
+async def fetch_trading_economics_events(date_from: str, date_to: str) -> List[dict]:
+    """Fetch economic calendar from Trading Economics via web scraping"""
     events = []
     try:
-        # First try investpy library
-        import investpy
-        from datetime import datetime as dt
+        url = "https://tradingeconomics.com/calendar"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5"
+        }
         
-        # Convert date format for investpy (DD/MM/YYYY)
-        try:
-            start = dt.strptime(date_from, "%Y-%m-%d")
-            end = dt.strptime(date_to, "%Y-%m-%d")
-            from_date = start.strftime("%d/%m/%Y")
-            to_date = end.strftime("%d/%m/%Y")
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as http_client:
+            response = await http_client.get(url, headers=headers)
+            logger.info(f"Trading Economics response: {response.status_code}")
             
-            df = investpy.news.economic_calendar(
-                from_date=from_date,
-                to_date=to_date,
-                importances=['high', 'medium', 'low']
-            )
-            
-            if df is not None and not df.empty:
-                for _, row in df.iterrows():
-                    date_val = row.get('date', '')
-                    if isinstance(date_val, str):
-                        try:
-                            parsed = dt.strptime(date_val, "%d/%m/%Y")
-                            date_str = parsed.strftime("%Y-%m-%d")
-                        except:
-                            date_str = date_val
-                    else:
-                        date_str = str(date_val)[:10]
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'lxml')
+                table = soup.find('table', id='calendar')
+                
+                if table:
+                    rows = table.find_all('tr')
+                    current_date = ""
                     
-                    importance = str(row.get('importance', 'low')).lower()
-                    if importance in ['high', '3']:
-                        impact = 'high'
-                    elif importance in ['medium', '2']:
-                        impact = 'medium'
-                    else:
-                        impact = 'low'
+                    for row in rows[1:100]:  # Skip header, limit to 100 rows
+                        cells = row.find_all('td')
+                        if len(cells) >= 5:
+                            # Extract date from first column if present
+                            date_cell = cells[0].get_text(strip=True)
+                            if date_cell and len(date_cell) > 3:
+                                # Try to parse date
+                                try:
+                                    # Trading Economics format varies
+                                    current_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+                                except:
+                                    pass
+                            
+                            time_text = cells[0].get_text(strip=True)[:8]
+                            country = cells[1].get_text(strip=True)[:3].upper()
+                            event_name = cells[2].get_text(strip=True)
+                            
+                            # Determine impact based on importance column or styling
+                            impact = "medium"
+                            importance_cell = cells[3] if len(cells) > 3 else None
+                            if importance_cell:
+                                imp_text = importance_cell.get_text(strip=True).lower()
+                                if 'high' in imp_text or '***' in str(importance_cell):
+                                    impact = "high"
+                                elif 'low' in imp_text or '*' in str(importance_cell):
+                                    impact = "low"
+                            
+                            # Filter for relevant currencies (USD, EUR, GBP for indices focus)
+                            if country in ['USD', 'EUR', 'GBP', 'US', 'EU', 'UK', 'DE', 'FR']:
+                                events.append({
+                                    "id": str(uuid.uuid4()),
+                                    "date": current_date or date_from,
+                                    "time": time_text,
+                                    "currency": country,
+                                    "impact": impact,
+                                    "event": event_name,
+                                    "actual": None,
+                                    "forecast": cells[4].get_text(strip=True) if len(cells) > 4 else None,
+                                    "previous": cells[5].get_text(strip=True) if len(cells) > 5 else None,
+                                    "source": "tradingeconomics"
+                                })
                     
-                    currency = row.get('currency', row.get('zone', ''))
-                    if currency and len(currency) > 3:
-                        currency = currency[:3].upper()
+                    logger.info(f"Got {len(events)} events from Trading Economics")
+                else:
+                    logger.warning("Trading Economics calendar table not found")
                     
-                    events.append({
-                        "id": str(uuid.uuid4()),
-                        "date": date_str,
-                        "time": str(row.get('time', ''))[:5],
-                        "currency": currency,
-                        "impact": impact,
-                        "event": row.get('event', ''),
-                        "actual": row.get('actual'),
-                        "forecast": row.get('forecast'),
-                        "previous": row.get('previous'),
-                        "source": "investing"
-                    })
-                logger.info(f"Got {len(events)} events from investpy")
-        except Exception as investpy_err:
-            logger.warning(f"investpy failed: {investpy_err}")
-            
-    except ImportError:
-        logger.warning("investpy not available")
     except Exception as e:
-        logger.error(f"Error fetching Investing.com: {e}")
+        logger.error(f"Error fetching Trading Economics: {e}")
     
     return events
 
