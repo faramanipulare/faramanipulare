@@ -534,6 +534,7 @@ function App() {
   useEffect(() => {
     fetchAnalysis(selectedDate);
     fetchWeekOverview(weekOffset);
+    fetchDataStatus();
   }, []);
 
   // Fetch events when filters change
@@ -548,7 +549,9 @@ function App() {
       marketFilter,
       impactFilter
     );
-  }, [weekOffset, marketFilter, impactFilter, fetchEvents]);
+    // Also update data status when events change
+    fetchDataStatus();
+  }, [weekOffset, marketFilter, impactFilter, fetchEvents, fetchDataStatus]);
 
   const handleDateSelect = (date) => {
     if (date) {
