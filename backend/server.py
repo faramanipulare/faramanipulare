@@ -6,7 +6,7 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, timezone, timedelta
 import httpx
@@ -27,6 +27,13 @@ app = FastAPI()
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
+
+# Simple in-memory cache for calendar data
+calendar_cache: Dict[str, Any] = {
+    "data": [],
+    "last_fetch": None,
+    "cache_duration": 300  # 5 minutes
+}
 
 # Configure logging
 logging.basicConfig(
