@@ -74,6 +74,16 @@ class DayAnalysis(BaseModel):
     event_count: int
     high_impact_count: int
 
+class MarketNews(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    headline: str
+    summary: str
+    source: str
+    url: str
+    datetime: str
+    category: str
+    related: Optional[str] = None
+
 class WeekOverview(BaseModel):
     week_start: str
     week_end: str
