@@ -54,20 +54,18 @@ Build a website that takes high impact news from investing.com and forexfactory 
 - [x] Core calendar display - DONE
 - [x] AI analysis integration - DONE
 - [x] Basic filtering - DONE
+- [x] Finnhub market news - DONE
 
 ### P1 (Important)
-- [ ] Real-time ForexFactory API integration (when rate limits allow)
-- [ ] Investing.com data integration via investpy
+- [x] Multiple data sources (ForexFactory, Trading Economics, Finnhub) - DONE
 - [ ] Push notifications for high-impact events
 
 ### P2 (Nice to Have)
 - [ ] Historical analysis view
 - [ ] Save favorite currencies
-- [ ] Email alerts
 - [ ] Mobile app
 
 ## Next Tasks
-1. Monitor and implement real ForexFactory API when rate limits reset
-2. Add Investing.com data source via investpy library
-3. Add push notifications for upcoming high-impact events
-4. Consider adding historical analysis and backtesting features
+1. Continue monitoring FairEconomy API for live economic calendar data
+2. Consider adding browser push notifications for upcoming high-impact events
+3. Add historical analysis and backtesting features
