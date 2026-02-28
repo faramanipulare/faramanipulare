@@ -599,6 +599,16 @@ async def get_week_overview(
 async def health_check():
     return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
 
+@api_router.get("/data-status")
+async def data_status():
+    """Get the current data source status"""
+    return {
+        "data_source": calendar_cache.get("data_source", "unknown"),
+        "last_fetch": calendar_cache["last_fetch"].isoformat() if calendar_cache["last_fetch"] else None,
+        "event_count": len(calendar_cache.get("data", [])),
+        "is_live": calendar_cache.get("data_source") == "live"
+    }
+
 # Include the router in the main app
 app.include_router(api_router)
 
