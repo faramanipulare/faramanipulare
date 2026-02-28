@@ -227,6 +227,11 @@
     color: rgb(255, 183, 77);
 }
 
+.source-te {
+    background-color: rgba(76, 175, 80, 0.15);
+    color: rgb(129, 199, 132);
+}
+
 .source-inv {
     background-color: rgba(33, 150, 243, 0.15);
     color: rgb(100, 181, 246);
