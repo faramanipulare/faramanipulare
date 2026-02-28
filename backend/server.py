@@ -546,8 +546,7 @@ async def get_week_overview(
         fetch_forexfactory_events(date_from, date_to),
         fetch_trading_economics_events(date_from, date_to)
     )
-    )
-    all_events = ff_events + inv_events
+    all_events = ff_events + te_events
     
     # Analyze each day
     days = []
