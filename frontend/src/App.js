@@ -793,7 +793,7 @@ function App() {
             <p>Data sources: ForexFactory, Trading Economics, Finnhub</p>
             <p className="flex items-center gap-2">
               <Brain size={14} />
-              AI powered by GPT-5.2
+              AI powered by Groq (Llama 3.3)
             </p>
           </div>
         </footer>
