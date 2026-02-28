@@ -299,6 +299,75 @@ class TradeSignalAPITester:
         
         return success
 
+    def test_market_news(self):
+        """Test market news endpoint (Finnhub integration)"""
+        # Test default category
+        success1, response1 = self.run_test(
+            "Market News - Default Category",
+            "GET",
+            "market-news",
+            200
+        )
+        
+        # Test specific category
+        success2, response2 = self.run_test(
+            "Market News - General Category",
+            "GET",
+            "market-news",
+            200,
+            params={"category": "general"}
+        )
+        
+        # Test forex category
+        success3, response3 = self.run_test(
+            "Market News - Forex Category",
+            "GET",
+            "market-news",
+            200,
+            params={"category": "forex"}
+        )
+        
+        # Validate response structure for market news
+        if success1 and isinstance(response1, list):
+            print(f"✅ Market News returns array with {len(response1)} items")
+            
+            if len(response1) > 0:
+                # Check first news item structure
+                news_item = response1[0]
+                required_fields = ["id", "headline", "source", "url", "datetime", "category"]
+                missing_fields = [field for field in required_fields if field not in news_item]
+                if missing_fields:
+                    print(f"⚠️  WARNING: Missing news item fields: {missing_fields}")
+                else:
+                    print(f"✅ News item has all required fields")
+                    
+                    # Validate URL format
+                    url = news_item.get("url", "")
+                    if url and (url.startswith("http://") or url.startswith("https://")):
+                        print(f"✅ Valid news URL format")
+                    else:
+                        print(f"⚠️  WARNING: Invalid or missing URL: {url[:50]}...")
+                    
+                    # Check headline is not empty
+                    headline = news_item.get("headline", "")
+                    if headline and len(headline.strip()) > 0:
+                        print(f"✅ News headline present: {headline[:50]}...")
+                    else:
+                        print(f"⚠️  WARNING: Empty or missing headline")
+                        
+                    # Check source is present
+                    source = news_item.get("source", "")
+                    if source and len(source.strip()) > 0:
+                        print(f"✅ News source present: {source}")
+                    else:
+                        print(f"⚠️  WARNING: Empty or missing source")
+            else:
+                print(f"ℹ️  No news items returned (might be due to API limits or no news available)")
+        elif success1:
+            print(f"⚠️  WARNING: Expected array response, got: {type(response1)}")
+        
+        return success1 and success2 and success3
+
     def run_all_tests(self):
         """Run all API tests"""
         print("=" * 60)
