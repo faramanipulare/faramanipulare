@@ -475,12 +475,12 @@ async def get_calendar(
         date_to = end_of_week.strftime("%Y-%m-%d")
     
     # Fetch from both sources concurrently
-    ff_events, inv_events = await asyncio.gather(
+    ff_events, te_events = await asyncio.gather(
         fetch_forexfactory_events(date_from, date_to),
-        fetch_investing_events(date_from, date_to)
+        fetch_trading_economics_events(date_from, date_to)
     )
     
-    all_events = ff_events + inv_events
+    all_events = ff_events + te_events
     
     # Filter by market/currency
     if market != "all" and market in RELEVANT_CURRENCIES:
