@@ -285,7 +285,7 @@ async def fetch_trading_economics_events(date_from: str, date_to: str) -> List[d
                                 try:
                                     # Trading Economics format varies
                                     current_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-                                except:
+                                except Exception:
                                     pass
                             
                             time_text = cells[0].get_text(strip=True)[:8]
