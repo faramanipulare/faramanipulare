@@ -82,34 +82,51 @@ RELEVANT_CURRENCIES = {
 }
 
 async def fetch_forexfactory_events(date_from: str, date_to: str) -> List[dict]:
-    """Fetch economic calendar from ForexFactory via JBlanked API"""
+    """Fetch economic calendar from ForexFactory via FairEconomy API"""
     events = []
     try:
-        # Use JBlanked free API for ForexFactory data
-        url = "https://www.jblanked.com/news/api/forex-factory/calendar/range/"
-        params = {
-            "from": date_from,
-            "to": date_to
-        }
+        # Use FairEconomy free API for ForexFactory data
+        url = "https://nfs.faireconomy.media/ff_calendar_thisweek.json"
         
         async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(url, params=params)
+            response = await client.get(url)
             if response.status_code == 200:
                 data = response.json()
                 for item in data:
+                    # Parse date from ISO format
+                    event_date = item.get("date", "")
+                    if event_date:
+                        try:
+                            from datetime import datetime as dt
+                            parsed_date = dt.fromisoformat(event_date.replace('Z', '+00:00'))
+                            date_str = parsed_date.strftime("%Y-%m-%d")
+                            time_str = parsed_date.strftime("%H:%M")
+                        except:
+                            date_str = event_date[:10] if len(event_date) >= 10 else event_date
+                            time_str = ""
+                    else:
+                        date_str = ""
+                        time_str = ""
+                    
+                    # Check if event falls within date range
+                    if date_from and date_to:
+                        if not (date_from <= date_str <= date_to):
+                            continue
+                    
                     impact = "low"
-                    if item.get("impact", "").lower() in ["high", "red"]:
+                    impact_raw = item.get("impact", "").lower()
+                    if impact_raw in ["high", "red"]:
                         impact = "high"
-                    elif item.get("impact", "").lower() in ["medium", "orange"]:
+                    elif impact_raw in ["medium", "orange"]:
                         impact = "medium"
                     
                     events.append({
                         "id": str(uuid.uuid4()),
-                        "date": item.get("date", ""),
-                        "time": item.get("time", ""),
-                        "currency": item.get("country", item.get("currency", "")),
+                        "date": date_str,
+                        "time": time_str,
+                        "currency": item.get("country", ""),
                         "impact": impact,
-                        "event": item.get("title", item.get("event", "")),
+                        "event": item.get("title", ""),
                         "actual": item.get("actual"),
                         "forecast": item.get("forecast"),
                         "previous": item.get("previous"),
