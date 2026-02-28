@@ -646,6 +646,7 @@ function App() {
     fetchAnalysis(selectedDate);
     fetchWeekOverview(weekOffset);
     fetchDataStatus();
+    fetchNews();
   }, []);
 
   // Fetch events when filters change
