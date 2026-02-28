@@ -273,7 +273,7 @@ const WeekOverview = ({ weekData, loading, onDaySelect }) => {
   );
 };
 
-// Calendar Events Table Component
+// Calendar Events Table Component - Now grouped by date
 const EventsTable = ({ events, loading }) => {
   if (loading) {
     return (
@@ -286,6 +286,42 @@ const EventsTable = ({ events, loading }) => {
       </div>
     );
   }
+
+  // Group events by date
+  const groupedEvents = {};
+  events?.forEach(event => {
+    const date = event.date || "Unknown";
+    if (!groupedEvents[date]) {
+      groupedEvents[date] = [];
+    }
+    groupedEvents[date].push(event);
+  });
+
+  // Sort dates and events within each date by time
+  const sortedDates = Object.keys(groupedEvents).sort();
+  sortedDates.forEach(date => {
+    groupedEvents[date].sort((a, b) => (a.time || "").localeCompare(b.time || ""));
+  });
+
+  // Format date for display
+  const formatDateDisplay = (dateStr) => {
+    try {
+      const date = parseISO(dateStr);
+      return format(date, "EEE, MMM d");
+    } catch {
+      return dateStr;
+    }
+  };
+
+  // Get day name
+  const getDayName = (dateStr) => {
+    try {
+      const date = parseISO(dateStr);
+      return format(date, "EEEE");
+    } catch {
+      return "";
+    }
+  };
 
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900/50" data-testid="events-table">
@@ -306,48 +342,67 @@ const EventsTable = ({ events, loading }) => {
               <p className="text-zinc-400">No events found</p>
             </div>
           ) : (
-            <table className="w-full">
-              <thead>
-                <tr className="text-xs text-zinc-500 border-b border-zinc-800">
-                  <th className="text-left py-3 px-3 font-medium">Time</th>
-                  <th className="text-left py-3 px-3 font-medium">Currency</th>
-                  <th className="text-left py-3 px-3 font-medium">Event</th>
-                  <th className="text-center py-3 px-3 font-medium">Impact</th>
-                  <th className="text-center py-3 px-3 font-medium">Source</th>
-                </tr>
-              </thead>
-              <tbody>
-                {events?.map((event) => (
-                  <tr 
-                    key={event.id} 
-                    className="table-row-hover border-b border-zinc-800/50 last:border-0"
-                    data-testid={`event-row-${event.id}`}
-                  >
-                    <td className="py-3 px-3">
-                      <div className="flex items-center gap-2">
-                        <Clock size={12} className="text-zinc-500" />
-                        <span className="font-mono text-sm text-zinc-300">{event.time || "TBA"}</span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-3">
-                      <div className="flex items-center gap-2">
-                        <Globe size={12} className="text-zinc-500" />
-                        <span className="text-sm font-medium text-zinc-200">{event.currency}</span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-3">
-                      <span className="text-sm text-zinc-300 line-clamp-1">{event.event}</span>
-                    </td>
-                    <td className="py-3 px-3 text-center">
-                      <ImpactBadge impact={event.impact} />
-                    </td>
-                    <td className="py-3 px-3 text-center">
-                      <SourceBadge source={event.source} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="space-y-4">
+              {sortedDates.map((date) => (
+                <div key={date} className="space-y-1">
+                  {/* Date Header */}
+                  <div className="sticky top-0 z-10 bg-zinc-900/95 backdrop-blur-sm py-2 px-3 rounded-lg border border-zinc-800/50 mb-2">
+                    <div className="flex items-center gap-3">
+                      <CalendarIcon size={14} className="text-indigo-400" />
+                      <span className="font-heading font-semibold text-zinc-100">{formatDateDisplay(date)}</span>
+                      <span className="text-xs text-zinc-500">({getDayName(date)})</span>
+                      <Badge variant="outline" className="ml-auto border-zinc-700 text-zinc-500 text-xs">
+                        {groupedEvents[date].length} events
+                      </Badge>
+                    </div>
+                  </div>
+                  
+                  {/* Events for this date */}
+                  <table className="w-full">
+                    <thead>
+                      <tr className="text-xs text-zinc-500 border-b border-zinc-800">
+                        <th className="text-left py-2 px-3 font-medium w-20">Time</th>
+                        <th className="text-left py-2 px-3 font-medium w-20">Currency</th>
+                        <th className="text-left py-2 px-3 font-medium">Event</th>
+                        <th className="text-center py-2 px-3 font-medium w-20">Impact</th>
+                        <th className="text-center py-2 px-3 font-medium w-16">Source</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {groupedEvents[date].map((event) => (
+                        <tr 
+                          key={event.id} 
+                          className="table-row-hover border-b border-zinc-800/30 last:border-0"
+                          data-testid={`event-row-${event.id}`}
+                        >
+                          <td className="py-2.5 px-3">
+                            <div className="flex items-center gap-1.5">
+                              <Clock size={11} className="text-zinc-500" />
+                              <span className="font-mono text-sm text-zinc-300">{event.time || "TBA"}</span>
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <div className="flex items-center gap-1.5">
+                              <Globe size={11} className="text-zinc-500" />
+                              <span className="text-sm font-medium text-zinc-200">{event.currency}</span>
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <span className="text-sm text-zinc-300 line-clamp-1">{event.event}</span>
+                          </td>
+                          <td className="py-2.5 px-3 text-center">
+                            <ImpactBadge impact={event.impact} />
+                          </td>
+                          <td className="py-2.5 px-3 text-center">
+                            <SourceBadge source={event.source} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </ScrollArea>
