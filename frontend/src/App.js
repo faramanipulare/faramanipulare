@@ -463,12 +463,22 @@ function App() {
   const [analysis, setAnalysis] = useState(null);
   const [weekData, setWeekData] = useState(null);
   const [events, setEvents] = useState([]);
+  const [dataStatus, setDataStatus] = useState({ is_live: false, data_source: "loading" });
   
   const [loadingAnalysis, setLoadingAnalysis] = useState(false);
   const [loadingWeek, setLoadingWeek] = useState(false);
   const [loadingEvents, setLoadingEvents] = useState(false);
 
   const formatDateParam = (date) => format(date, "yyyy-MM-dd");
+
+  const fetchDataStatus = useCallback(async () => {
+    try {
+      const response = await axios.get(`${API}/data-status`);
+      setDataStatus(response.data);
+    } catch (error) {
+      console.error("Error fetching data status:", error);
+    }
+  }, []);
 
   const fetchAnalysis = useCallback(async (date) => {
     setLoadingAnalysis(true);
