@@ -138,54 +138,68 @@ async def fetch_forexfactory_events(date_from: str, date_to: str) -> List[dict]:
     return events
 
 async def fetch_investing_events(date_from: str, date_to: str) -> List[dict]:
-    """Fetch economic calendar from Investing.com via scraping"""
+    """Fetch economic calendar from Investing.com via investpy or web scraping"""
     events = []
     try:
-        # Scrape Investing.com calendar
-        url = "https://www.investing.com/economic-calendar/"
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.5"
-        }
+        # First try investpy library
+        import investpy
+        from datetime import datetime as dt
         
-        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-            response = await client.get(url, headers=headers)
-            if response.status_code == 200:
-                soup = BeautifulSoup(response.text, 'html.parser')
-                
-                # Parse calendar rows
-                rows = soup.find_all('tr', class_='js-event-item')
-                for row in rows[:50]:  # Limit to first 50 events
-                    try:
-                        time_elem = row.find('td', class_='time')
-                        currency_elem = row.find('td', class_='flagCur')
-                        event_elem = row.find('td', class_='event')
-                        
-                        # Get impact from bull icons
-                        impact = "low"
-                        impact_elem = row.find('td', class_='sentiment')
-                        if impact_elem:
-                            bulls = impact_elem.find_all('i', class_='grayFullBullishIcon')
-                            if len(bulls) >= 3:
-                                impact = "high"
-                            elif len(bulls) == 2:
-                                impact = "medium"
-                        
-                        events.append({
-                            "id": str(uuid.uuid4()),
-                            "date": date_from,
-                            "time": time_elem.text.strip() if time_elem else "",
-                            "currency": currency_elem.text.strip() if currency_elem else "",
-                            "impact": impact,
-                            "event": event_elem.text.strip() if event_elem else "",
-                            "actual": None,
-                            "forecast": None,
-                            "previous": None,
-                            "source": "investing"
-                        })
-                    except Exception:
-                        continue
+        # Convert date format for investpy (DD/MM/YYYY)
+        try:
+            start = dt.strptime(date_from, "%Y-%m-%d")
+            end = dt.strptime(date_to, "%Y-%m-%d")
+            from_date = start.strftime("%d/%m/%Y")
+            to_date = end.strftime("%d/%m/%Y")
+            
+            df = investpy.news.economic_calendar(
+                from_date=from_date,
+                to_date=to_date,
+                importances=['high', 'medium', 'low']
+            )
+            
+            if df is not None and not df.empty:
+                for _, row in df.iterrows():
+                    date_val = row.get('date', '')
+                    if isinstance(date_val, str):
+                        try:
+                            parsed = dt.strptime(date_val, "%d/%m/%Y")
+                            date_str = parsed.strftime("%Y-%m-%d")
+                        except:
+                            date_str = date_val
+                    else:
+                        date_str = str(date_val)[:10]
+                    
+                    importance = str(row.get('importance', 'low')).lower()
+                    if importance in ['high', '3']:
+                        impact = 'high'
+                    elif importance in ['medium', '2']:
+                        impact = 'medium'
+                    else:
+                        impact = 'low'
+                    
+                    currency = row.get('currency', row.get('zone', ''))
+                    if currency and len(currency) > 3:
+                        currency = currency[:3].upper()
+                    
+                    events.append({
+                        "id": str(uuid.uuid4()),
+                        "date": date_str,
+                        "time": str(row.get('time', ''))[:5],
+                        "currency": currency,
+                        "impact": impact,
+                        "event": row.get('event', ''),
+                        "actual": row.get('actual'),
+                        "forecast": row.get('forecast'),
+                        "previous": row.get('previous'),
+                        "source": "investing"
+                    })
+                logger.info(f"Got {len(events)} events from investpy")
+        except Exception as investpy_err:
+            logger.warning(f"investpy failed: {investpy_err}")
+            
+    except ImportError:
+        logger.warning("investpy not available")
     except Exception as e:
         logger.error(f"Error fetching Investing.com: {e}")
     
