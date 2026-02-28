@@ -442,6 +442,79 @@ const EventsTable = ({ events, loading }) => {
   );
 };
 
+// Market News Component
+const MarketNews = ({ news, loading }) => {
+  if (loading) {
+    return (
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6" data-testid="news-loading">
+        <div className="space-y-3">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="h-16 skeleton rounded-lg"></div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const formatNewsTime = (isoString) => {
+    try {
+      const date = parseISO(isoString);
+      return formatDistanceToNow(date, { addSuffix: true });
+    } catch {
+      return "";
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900/50" data-testid="market-news">
+      <div className="p-4 border-b border-zinc-800">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Newspaper size={18} className="text-indigo-400" />
+            <h2 className="font-heading text-lg font-bold text-zinc-100">Market News</h2>
+          </div>
+          <Badge variant="outline" className="border-indigo-500/30 text-indigo-400 bg-indigo-500/10">
+            Finnhub
+          </Badge>
+        </div>
+      </div>
+
+      <ScrollArea className="h-[280px]">
+        <div className="p-3 space-y-3">
+          {news?.length === 0 ? (
+            <div className="text-center py-8">
+              <Newspaper className="w-10 h-10 text-zinc-600 mx-auto mb-3" />
+              <p className="text-zinc-400 text-sm">No news available</p>
+            </div>
+          ) : (
+            news?.map((item) => (
+              <a
+                key={item.id}
+                href={item.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block p-3 rounded-lg bg-zinc-800/30 border border-zinc-700/30 hover:border-zinc-600/50 hover:bg-zinc-800/50 transition-all group"
+                data-testid={`news-item-${item.id}`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="text-sm font-medium text-zinc-200 line-clamp-2 group-hover:text-zinc-50">
+                    {item.headline}
+                  </h3>
+                  <ExternalLink size={14} className="text-zinc-500 flex-shrink-0 mt-0.5 group-hover:text-indigo-400" />
+                </div>
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-xs text-indigo-400 font-medium">{item.source}</span>
+                  <span className="text-xs text-zinc-500">{formatNewsTime(item.datetime)}</span>
+                </div>
+              </a>
+            ))
+          )}
+        </div>
+      </ScrollArea>
+    </div>
+  );
+};
+
 // Market Filter Component
 const MarketFilter = ({ selected, onChange }) => {
   const markets = [
