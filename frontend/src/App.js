@@ -54,9 +54,22 @@ const ImpactBadge = ({ impact }) => {
 // Source Badge Component
 const SourceBadge = ({ source }) => {
   const isFF = source === "forexfactory";
+  const isTE = source === "tradingeconomics";
+  
+  let className = "source-ff";  // Default ForexFactory orange
+  let label = "FF";
+  
+  if (isTE) {
+    className = "source-te";
+    label = "TE";
+  } else if (!isFF) {
+    className = "source-inv";
+    label = "INV";
+  }
+  
   return (
-    <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${isFF ? "source-ff" : "source-inv"}`}>
-      {isFF ? "FF" : "INV"}
+    <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${className}`}>
+      {label}
     </span>
   );
 };
