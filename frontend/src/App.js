@@ -586,7 +586,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-zinc-950 grid-texture" data-testid="app-container">
-      <Header />
+      <Header dataStatus={dataStatus} />
       <Toaster position="top-right" />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
