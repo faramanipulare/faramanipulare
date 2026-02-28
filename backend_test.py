@@ -258,6 +258,47 @@ class TradeSignalAPITester:
         
         return success1 and success2 and success3
 
+    def test_data_status(self):
+        """Test data status endpoint"""
+        success, response = self.run_test(
+            "Data Status Endpoint",
+            "GET",
+            "data-status",
+            200
+        )
+        
+        # Validate response structure
+        if success and response:
+            required_fields = ["data_source", "is_live", "event_count"]
+            missing_fields = [field for field in required_fields if field not in response]
+            if missing_fields:
+                print(f"⚠️  WARNING: Missing data status fields: {missing_fields}")
+            else:
+                print(f"✅ Data Status response has all required fields")
+                
+                # Validate data_source values
+                data_source = response.get("data_source")
+                if data_source in ["live", "sample"]:
+                    print(f"✅ Valid data source: {data_source}")
+                else:
+                    print(f"⚠️  WARNING: Invalid data source: {data_source}")
+                
+                # Validate is_live is boolean
+                is_live = response.get("is_live")
+                if isinstance(is_live, bool):
+                    print(f"✅ Valid is_live boolean: {is_live}")
+                else:
+                    print(f"⚠️  WARNING: is_live should be boolean: {is_live}")
+                
+                # Check event count
+                event_count = response.get("event_count")
+                if isinstance(event_count, int) and event_count >= 0:
+                    print(f"✅ Valid event count: {event_count}")
+                else:
+                    print(f"⚠️  WARNING: Invalid event count: {event_count}")
+        
+        return success
+
     def run_all_tests(self):
         """Run all API tests"""
         print("=" * 60)
