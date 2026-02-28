@@ -782,10 +782,15 @@ function App() {
           </div>
         </div>
 
+        {/* Market News Section - Full Width */}
+        <div className="mt-6 fade-in stagger-3">
+          <MarketNews news={news} loading={loadingNews} />
+        </div>
+
         {/* Footer */}
         <footer className="mt-12 pt-8 border-t border-zinc-800">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-zinc-500">
-            <p>Data sources: ForexFactory, Investing.com</p>
+            <p>Data sources: ForexFactory, Trading Economics, Finnhub</p>
             <p className="flex items-center gap-2">
               <Brain size={14} />
               AI powered by GPT-5.2
