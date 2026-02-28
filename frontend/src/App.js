@@ -558,11 +558,13 @@ function App() {
   const [analysis, setAnalysis] = useState(null);
   const [weekData, setWeekData] = useState(null);
   const [events, setEvents] = useState([]);
+  const [news, setNews] = useState([]);
   const [dataStatus, setDataStatus] = useState({ is_live: false, data_source: "loading" });
   
   const [loadingAnalysis, setLoadingAnalysis] = useState(false);
   const [loadingWeek, setLoadingWeek] = useState(false);
   const [loadingEvents, setLoadingEvents] = useState(false);
+  const [loadingNews, setLoadingNews] = useState(false);
 
   const formatDateParam = (date) => format(date, "yyyy-MM-dd");
 
@@ -572,6 +574,20 @@ function App() {
       setDataStatus(response.data);
     } catch (error) {
       console.error("Error fetching data status:", error);
+    }
+  }, []);
+
+  const fetchNews = useCallback(async () => {
+    setLoadingNews(true);
+    try {
+      const response = await axios.get(`${API}/market-news`, {
+        params: { category: "general" }
+      });
+      setNews(response.data);
+    } catch (error) {
+      console.error("Error fetching news:", error);
+    } finally {
+      setLoadingNews(false);
     }
   }, []);
 
