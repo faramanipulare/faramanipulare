@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import "@/App.css";
 import axios from "axios";
-import { format, addDays, startOfWeek, parseISO } from "date-fns";
+import { format, addDays, startOfWeek, parseISO, formatDistanceToNow } from "date-fns";
 import { 
   TrendingUp, 
   AlertTriangle, 
@@ -16,7 +16,9 @@ import {
   Clock,
   Globe,
   BarChart3,
-  Brain
+  Brain,
+  Newspaper,
+  ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
