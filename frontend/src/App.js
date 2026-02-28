@@ -62,7 +62,7 @@ const SourceBadge = ({ source }) => {
 };
 
 // Header Component
-const Header = () => (
+const Header = ({ dataStatus }) => (
   <header className="header-glass px-6 py-4" data-testid="header">
     <div className="max-w-7xl mx-auto flex items-center justify-between">
       <div className="flex items-center gap-3">
@@ -74,10 +74,18 @@ const Header = () => (
           <p className="text-xs text-zinc-500">Forex & Indices Intelligence</p>
         </div>
       </div>
-      <div className="flex items-center gap-2">
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-800/50 border border-zinc-700/50">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 pulse-glow"></span>
-          <span className="text-xs text-zinc-400 font-medium">Live</span>
+      <div className="flex items-center gap-3">
+        {/* Data source indicator */}
+        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${
+          dataStatus?.is_live 
+            ? "bg-emerald-500/10 border-emerald-500/30" 
+            : "bg-amber-500/10 border-amber-500/30"
+        }`}>
+          <span className={`w-2 h-2 rounded-full ${dataStatus?.is_live ? "bg-emerald-500" : "bg-amber-500"} pulse-glow`}></span>
+          <span className={`text-xs font-medium ${dataStatus?.is_live ? "text-emerald-400" : "text-amber-400"}`}>
+            {dataStatus?.is_live ? "Live Data" : "Sample Data"}
+          </span>
+        </div>
         </div>
       </div>
     </div>
