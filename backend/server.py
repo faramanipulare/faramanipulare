@@ -89,58 +89,80 @@ RELEVANT_CURRENCIES = {
 }
 
 async def fetch_forexfactory_events(date_from: str, date_to: str) -> List[dict]:
-    """Fetch economic calendar from ForexFactory via FairEconomy API"""
-    events = []
-    try:
-        # Use FairEconomy free API for ForexFactory data
-        url = "https://nfs.faireconomy.media/ff_calendar_thisweek.json"
-        
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(url)
-            if response.status_code == 200:
-                data = response.json()
-                for item in data:
-                    # Parse date from ISO format
-                    event_date = item.get("date", "")
-                    if event_date:
-                        try:
-                            from datetime import datetime as dt
-                            parsed_date = dt.fromisoformat(event_date.replace('Z', '+00:00'))
-                            date_str = parsed_date.strftime("%Y-%m-%d")
-                            time_str = parsed_date.strftime("%H:%M")
-                        except:
-                            date_str = event_date[:10] if len(event_date) >= 10 else event_date
+    """Fetch economic calendar from ForexFactory via FairEconomy API with caching"""
+    global calendar_cache
+    
+    # Check cache validity
+    now = datetime.now(timezone.utc)
+    if (calendar_cache["last_fetch"] and 
+        calendar_cache["data"] and
+        (now - calendar_cache["last_fetch"]).total_seconds() < calendar_cache["cache_duration"]):
+        # Use cached data
+        all_data = calendar_cache["data"]
+        logger.info(f"Using cached data: {len(all_data)} events")
+    else:
+        # Fetch fresh data
+        all_data = []
+        try:
+            url = "https://nfs.faireconomy.media/ff_calendar_thisweek.json"
+            
+            async with httpx.AsyncClient(timeout=30.0) as http_client:
+                response = await http_client.get(url)
+                if response.status_code == 200:
+                    raw_data = response.json()
+                    for item in raw_data:
+                        event_date = item.get("date", "")
+                        if event_date:
+                            try:
+                                from datetime import datetime as dt
+                                parsed_date = dt.fromisoformat(event_date.replace('Z', '+00:00'))
+                                date_str = parsed_date.strftime("%Y-%m-%d")
+                                time_str = parsed_date.strftime("%H:%M")
+                            except Exception:
+                                date_str = event_date[:10] if len(event_date) >= 10 else event_date
+                                time_str = ""
+                        else:
+                            date_str = ""
                             time_str = ""
-                    else:
-                        date_str = ""
-                        time_str = ""
+                        
+                        impact = "low"
+                        impact_raw = item.get("impact", "").lower()
+                        if impact_raw in ["high", "red"]:
+                            impact = "high"
+                        elif impact_raw in ["medium", "orange"]:
+                            impact = "medium"
+                        
+                        all_data.append({
+                            "id": str(uuid.uuid4()),
+                            "date": date_str,
+                            "time": time_str,
+                            "currency": item.get("country", ""),
+                            "impact": impact,
+                            "event": item.get("title", ""),
+                            "actual": item.get("actual"),
+                            "forecast": item.get("forecast"),
+                            "previous": item.get("previous"),
+                            "source": "forexfactory"
+                        })
                     
-                    # Check if event falls within date range
-                    if date_from and date_to:
-                        if not (date_from <= date_str <= date_to):
-                            continue
-                    
-                    impact = "low"
-                    impact_raw = item.get("impact", "").lower()
-                    if impact_raw in ["high", "red"]:
-                        impact = "high"
-                    elif impact_raw in ["medium", "orange"]:
-                        impact = "medium"
-                    
-                    events.append({
-                        "id": str(uuid.uuid4()),
-                        "date": date_str,
-                        "time": time_str,
-                        "currency": item.get("country", ""),
-                        "impact": impact,
-                        "event": item.get("title", ""),
-                        "actual": item.get("actual"),
-                        "forecast": item.get("forecast"),
-                        "previous": item.get("previous"),
-                        "source": "forexfactory"
-                    })
-    except Exception as e:
-        logger.error(f"Error fetching ForexFactory: {e}")
+                    # Update cache
+                    calendar_cache["data"] = all_data
+                    calendar_cache["last_fetch"] = now
+                    logger.info(f"Fetched and cached {len(all_data)} events from ForexFactory")
+        except Exception as e:
+            logger.error(f"Error fetching ForexFactory: {e}")
+    
+    # Filter by date range if specified
+    events = []
+    for item in all_data:
+        date_str = item.get("date", "")
+        if date_from and date_to:
+            if date_str and date_from <= date_str <= date_to:
+                events.append(item.copy())
+                events[-1]["id"] = str(uuid.uuid4())  # New ID for each response
+        else:
+            events.append(item.copy())
+            events[-1]["id"] = str(uuid.uuid4())
     
     return events
 
