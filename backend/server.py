@@ -627,6 +627,60 @@ async def data_status():
         "is_live": calendar_cache.get("data_source") == "live"
     }
 
+@api_router.get("/market-news", response_model=List[MarketNews])
+async def get_market_news(
+    category: str = Query(default="general", description="News category: general, forex, crypto, merger")
+):
+    """Get latest market news from Finnhub"""
+    finnhub_key = os.environ.get("FINNHUB_API_KEY")
+    if not finnhub_key:
+        return []
+    
+    news_items = []
+    try:
+        url = "https://finnhub.io/api/v1/news"
+        params = {
+            "category": category,
+            "token": finnhub_key
+        }
+        
+        async with httpx.AsyncClient(timeout=30.0) as http_client:
+            response = await http_client.get(url, params=params)
+            
+            if response.status_code == 200:
+                data = response.json()
+                
+                for item in data[:20]:  # Limit to 20 news items
+                    # Convert Unix timestamp to ISO format
+                    news_datetime = ""
+                    if item.get("datetime"):
+                        try:
+                            news_datetime = datetime.fromtimestamp(
+                                item["datetime"], tz=timezone.utc
+                            ).isoformat()
+                        except Exception:
+                            news_datetime = str(item.get("datetime", ""))
+                    
+                    news_items.append(MarketNews(
+                        id=str(uuid.uuid4()),
+                        headline=item.get("headline", ""),
+                        summary=item.get("summary", "")[:300] if item.get("summary") else "",
+                        source=item.get("source", ""),
+                        url=item.get("url", ""),
+                        datetime=news_datetime,
+                        category=item.get("category", category),
+                        related=item.get("related", "")
+                    ))
+                
+                logger.info(f"Got {len(news_items)} news items from Finnhub")
+            else:
+                logger.warning(f"Finnhub news API returned {response.status_code}")
+                
+    except Exception as e:
+        logger.error(f"Error fetching Finnhub news: {e}")
+    
+    return news_items
+
 # Include the router in the main app
 app.include_router(api_router)
 
