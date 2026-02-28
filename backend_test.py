@@ -396,6 +396,10 @@ class TradeSignalAPITester:
         print("\n📊 Testing Data Status API...")
         self.test_data_status()
         
+        # Market News tests (Finnhub integration)
+        print("\n📰 Testing Market News API...")
+        self.test_market_news()
+        
         # Print final results
         print("\n" + "=" * 60)
         print("📊 FINAL TEST RESULTS")
