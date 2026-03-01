@@ -107,9 +107,16 @@ async def fetch_forexfactory_events(date_from: str, date_to: str) -> List[dict]:
     # Check cache validity
     now = datetime.now(timezone.utc)
     
-    # Calculate current week dates for validation
-    current_week_start = (now - timedelta(days=now.weekday())).strftime("%Y-%m-%d")
-    current_week_end = (now + timedelta(days=(4 - now.weekday()))).strftime("%Y-%m-%d")
+    # Calculate current/next trading week dates for validation
+    # If weekend, use next week; otherwise current week
+    if now.weekday() >= 5:  # Weekend
+        days_until_monday = 7 - now.weekday()
+        week_monday = now + timedelta(days=days_until_monday)
+    else:
+        week_monday = now - timedelta(days=now.weekday())
+    
+    current_week_start = week_monday.strftime("%Y-%m-%d")
+    current_week_end = (week_monday + timedelta(days=4)).strftime("%Y-%m-%d")
     
     if (calendar_cache["last_fetch"] and 
         calendar_cache["data"] and
