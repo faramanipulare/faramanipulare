@@ -710,6 +710,32 @@ async def get_market_news(
     
     return news_items
 
+@api_router.post("/refresh-cache")
+async def refresh_cache():
+    """Force refresh the calendar cache - clears cache and fetches fresh data"""
+    global calendar_cache
+    
+    # Clear the cache
+    calendar_cache["data"] = []
+    calendar_cache["last_fetch"] = None
+    calendar_cache["data_source"] = "refreshing"
+    
+    # Fetch fresh data
+    today = datetime.now(timezone.utc)
+    week_start = (today - timedelta(days=today.weekday())).strftime("%Y-%m-%d")
+    week_end = (today + timedelta(days=(4 - today.weekday()))).strftime("%Y-%m-%d")
+    
+    events = await fetch_forexfactory_events(week_start, week_end)
+    
+    return {
+        "status": "refreshed",
+        "data_source": calendar_cache.get("data_source", "unknown"),
+        "event_count": len(events),
+        "week_start": week_start,
+        "week_end": week_end,
+        "message": f"Cache refreshed with {len(events)} events for {week_start} to {week_end}"
+    }
+
 # Include the router in the main app
 app.include_router(api_router)
 
