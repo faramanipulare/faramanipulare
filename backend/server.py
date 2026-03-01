@@ -119,12 +119,18 @@ async def fetch_forexfactory_events(date_from: str, date_to: str) -> List[dict]:
     current_week_start = week_monday.strftime("%Y-%m-%d")
     current_week_end = (week_monday + timedelta(days=4)).strftime("%Y-%m-%d")
     
-    if (calendar_cache["last_fetch"] and 
+    # Check if cache is valid: not expired AND same week
+    cache_valid = (
+        calendar_cache["last_fetch"] and 
         calendar_cache["data"] and
-        (now - calendar_cache["last_fetch"]).total_seconds() < calendar_cache["cache_duration"]):
+        (now - calendar_cache["last_fetch"]).total_seconds() < calendar_cache["cache_duration"] and
+        calendar_cache.get("week_start") == current_week_start
+    )
+    
+    if cache_valid:
         # Use cached data
         all_data = calendar_cache["data"]
-        logger.info(f"Using cached data: {len(all_data)} events")
+        logger.info(f"Using cached data: {len(all_data)} events for week {current_week_start}")
     else:
         # Fetch fresh data
         all_data = []
