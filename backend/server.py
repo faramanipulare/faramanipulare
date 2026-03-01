@@ -520,17 +520,22 @@ async def get_calendar(
     market: str = Query(default="all", description="Market filter: all, indices, gbpusd, eurusd"),
     impact: str = Query(default="all", description="Impact filter: all, high, medium, low")
 ):
-    """Get combined economic calendar from ForexFactory and Investing.com"""
-    # Default to current week
+    """Get combined economic calendar from ForexFactory and Trading Economics"""
+    # Default to current/next trading week
     today = datetime.now(timezone.utc)
-    if not date_from:
-        # Start from Monday of current week
-        start_of_week = today - timedelta(days=today.weekday())
-        date_from = start_of_week.strftime("%Y-%m-%d")
-    if not date_to:
-        # End on Friday of current week
-        end_of_week = today + timedelta(days=(4 - today.weekday()))
-        date_to = end_of_week.strftime("%Y-%m-%d")
+    
+    if not date_from or not date_to:
+        # If weekend, use next week; otherwise current week
+        if today.weekday() >= 5:  # Weekend (Sat=5, Sun=6)
+            days_until_monday = 7 - today.weekday()
+            week_monday = today + timedelta(days=days_until_monday)
+        else:
+            week_monday = today - timedelta(days=today.weekday())
+        
+        if not date_from:
+            date_from = week_monday.strftime("%Y-%m-%d")
+        if not date_to:
+            date_to = (week_monday + timedelta(days=4)).strftime("%Y-%m-%d")
     
     # Fetch from both sources concurrently
     ff_events, te_events = await asyncio.gather(
