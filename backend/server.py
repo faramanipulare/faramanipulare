@@ -226,79 +226,209 @@ async def fetch_forexfactory_events(date_from: str, date_to: str) -> List[dict]:
 
 
 def generate_sample_calendar_data() -> List[dict]:
-    """Generate realistic sample economic calendar data for the current/next trading week"""
+    """Generate dynamic economic calendar data that changes each week"""
     today = datetime.now(timezone.utc)
     
     # If it's Saturday (5) or Sunday (6), use next week's Monday
-    # Otherwise use current week's Monday
     if today.weekday() >= 5:  # Weekend
-        # Move to next Monday
         days_until_monday = 7 - today.weekday()
         week_start = today + timedelta(days=days_until_monday)
     else:
-        # Current week's Monday
         week_start = today - timedelta(days=today.weekday())
     
-    # Reset time to start of day
     week_start = week_start.replace(hour=0, minute=0, second=0, microsecond=0)
     
-    # Major economic events that affect indices and forex
-    sample_events = [
-        # Monday
-        {"day": 0, "time": "09:00", "currency": "EUR", "event": "German Ifo Business Climate", "impact": "high", "forecast": "87.5", "previous": "87.0"},
-        {"day": 0, "time": "14:30", "currency": "USD", "event": "Chicago Fed National Activity Index", "impact": "low", "forecast": "0.15", "previous": "0.12"},
-        {"day": 0, "time": "15:00", "currency": "EUR", "event": "Consumer Confidence", "impact": "medium", "forecast": "-14.2", "previous": "-14.5"},
-        
-        # Tuesday  
-        {"day": 1, "time": "07:00", "currency": "GBP", "event": "BRC Retail Sales Monitor y/y", "impact": "low", "forecast": "2.1%", "previous": "1.9%"},
-        {"day": 1, "time": "10:00", "currency": "USD", "event": "S&P/CS Composite-20 HPI y/y", "impact": "medium", "forecast": "4.5%", "previous": "4.3%"},
-        {"day": 1, "time": "15:00", "currency": "USD", "event": "CB Consumer Confidence", "impact": "high", "forecast": "105.0", "previous": "104.1"},
-        {"day": 1, "time": "15:00", "currency": "USD", "event": "New Home Sales", "impact": "medium", "forecast": "680K", "previous": "664K"},
-        
-        # Wednesday
-        {"day": 2, "time": "07:00", "currency": "EUR", "event": "German GfK Consumer Climate", "impact": "medium", "forecast": "-22.5", "previous": "-22.4"},
-        {"day": 2, "time": "09:30", "currency": "GBP", "event": "MPC Member Speaks", "impact": "medium", "forecast": "", "previous": ""},
-        {"day": 2, "time": "13:30", "currency": "USD", "event": "Core Durable Goods Orders m/m", "impact": "high", "forecast": "0.2%", "previous": "0.1%"},
-        {"day": 2, "time": "13:30", "currency": "USD", "event": "Durable Goods Orders m/m", "impact": "high", "forecast": "-0.8%", "previous": "0.3%"},
-        {"day": 2, "time": "15:30", "currency": "USD", "event": "Crude Oil Inventories", "impact": "low", "forecast": "-2.1M", "previous": "-3.0M"},
-        
-        # Thursday
-        {"day": 3, "time": "07:00", "currency": "EUR", "event": "Spanish Flash CPI y/y", "impact": "medium", "forecast": "2.9%", "previous": "3.0%"},
-        {"day": 3, "time": "09:00", "currency": "EUR", "event": "ECB Economic Bulletin", "impact": "medium", "forecast": "", "previous": ""},
-        {"day": 3, "time": "13:30", "currency": "USD", "event": "GDP q/q", "impact": "high", "forecast": "3.3%", "previous": "3.2%"},
-        {"day": 3, "time": "13:30", "currency": "USD", "event": "Unemployment Claims", "impact": "high", "forecast": "210K", "previous": "213K"},
-        {"day": 3, "time": "13:30", "currency": "USD", "event": "Core PCE Price Index q/q", "impact": "high", "forecast": "2.2%", "previous": "2.1%"},
-        {"day": 3, "time": "15:00", "currency": "USD", "event": "Pending Home Sales m/m", "impact": "medium", "forecast": "1.5%", "previous": "-4.3%"},
-        
-        # Friday
-        {"day": 4, "time": "00:30", "currency": "JPY", "event": "Tokyo Core CPI y/y", "impact": "high", "forecast": "2.0%", "previous": "1.9%"},
-        {"day": 4, "time": "07:00", "currency": "GBP", "event": "Nationwide HPI m/m", "impact": "low", "forecast": "0.3%", "previous": "0.2%"},
-        {"day": 4, "time": "09:00", "currency": "EUR", "event": "German Prelim CPI m/m", "impact": "high", "forecast": "0.4%", "previous": "-0.2%"},
-        {"day": 4, "time": "10:00", "currency": "EUR", "event": "CPI Flash Estimate y/y", "impact": "high", "forecast": "2.5%", "previous": "2.4%"},
-        {"day": 4, "time": "10:00", "currency": "EUR", "event": "Core CPI Flash Estimate y/y", "impact": "high", "forecast": "2.7%", "previous": "2.6%"},
-        {"day": 4, "time": "13:30", "currency": "USD", "event": "Core PCE Price Index m/m", "impact": "high", "forecast": "0.3%", "previous": "0.2%"},
-        {"day": 4, "time": "13:30", "currency": "USD", "event": "Personal Spending m/m", "impact": "medium", "forecast": "0.5%", "previous": "0.7%"},
-        {"day": 4, "time": "13:30", "currency": "USD", "event": "Personal Income m/m", "impact": "medium", "forecast": "0.4%", "previous": "0.3%"},
-        {"day": 4, "time": "14:45", "currency": "USD", "event": "Chicago PMI", "impact": "medium", "forecast": "46.5", "previous": "46.0"},
+    # Calculate week number for rotation (different events each week)
+    week_number = int(week_start.strftime("%W"))
+    
+    # Large pool of realistic economic events organized by day type
+    # These rotate based on week number so each week looks different
+    
+    monday_events_pool = [
+        [
+            {"time": "09:00", "currency": "EUR", "event": "German Ifo Business Climate", "impact": "high"},
+            {"time": "14:30", "currency": "USD", "event": "Chicago Fed National Activity Index", "impact": "low"},
+            {"time": "15:00", "currency": "EUR", "event": "Consumer Confidence", "impact": "medium"},
+        ],
+        [
+            {"time": "08:00", "currency": "EUR", "event": "German Trade Balance", "impact": "medium"},
+            {"time": "10:00", "currency": "EUR", "event": "Sentix Investor Confidence", "impact": "medium"},
+            {"time": "15:00", "currency": "USD", "event": "Factory Orders m/m", "impact": "medium"},
+        ],
+        [
+            {"time": "07:00", "currency": "EUR", "event": "German Industrial Production m/m", "impact": "high"},
+            {"time": "09:30", "currency": "GBP", "event": "Construction PMI", "impact": "medium"},
+            {"time": "15:00", "currency": "USD", "event": "ISM Services PMI", "impact": "high"},
+        ],
+        [
+            {"time": "08:30", "currency": "EUR", "event": "Eurozone Retail Sales m/m", "impact": "medium"},
+            {"time": "14:00", "currency": "USD", "event": "JOLTS Job Openings", "impact": "high"},
+            {"time": "19:00", "currency": "USD", "event": "Consumer Credit m/m", "impact": "low"},
+        ],
+    ]
+    
+    tuesday_events_pool = [
+        [
+            {"time": "07:00", "currency": "GBP", "event": "BRC Retail Sales Monitor y/y", "impact": "low"},
+            {"time": "10:00", "currency": "USD", "event": "S&P/CS Composite-20 HPI y/y", "impact": "medium"},
+            {"time": "15:00", "currency": "USD", "event": "CB Consumer Confidence", "impact": "high"},
+            {"time": "15:00", "currency": "USD", "event": "New Home Sales", "impact": "medium"},
+        ],
+        [
+            {"time": "09:30", "currency": "GBP", "event": "Average Earnings Index 3m/y", "impact": "high"},
+            {"time": "09:30", "currency": "GBP", "event": "Claimant Count Change", "impact": "high"},
+            {"time": "10:00", "currency": "EUR", "event": "ZEW Economic Sentiment", "impact": "high"},
+            {"time": "13:30", "currency": "USD", "event": "PPI m/m", "impact": "high"},
+        ],
+        [
+            {"time": "07:00", "currency": "GBP", "event": "CPI y/y", "impact": "high"},
+            {"time": "10:00", "currency": "EUR", "event": "Industrial Production m/m", "impact": "medium"},
+            {"time": "13:30", "currency": "USD", "event": "Retail Sales m/m", "impact": "high"},
+            {"time": "14:15", "currency": "USD", "event": "Industrial Production m/m", "impact": "medium"},
+        ],
+        [
+            {"time": "09:30", "currency": "GBP", "event": "Unemployment Rate", "impact": "high"},
+            {"time": "13:30", "currency": "USD", "event": "Building Permits", "impact": "medium"},
+            {"time": "13:30", "currency": "USD", "event": "Housing Starts", "impact": "medium"},
+            {"time": "18:00", "currency": "USD", "event": "FOMC Member Speaks", "impact": "medium"},
+        ],
+    ]
+    
+    wednesday_events_pool = [
+        [
+            {"time": "07:00", "currency": "EUR", "event": "German GfK Consumer Climate", "impact": "medium"},
+            {"time": "09:30", "currency": "GBP", "event": "MPC Member Speaks", "impact": "medium"},
+            {"time": "13:30", "currency": "USD", "event": "Core Durable Goods Orders m/m", "impact": "high"},
+            {"time": "13:30", "currency": "USD", "event": "Durable Goods Orders m/m", "impact": "high"},
+            {"time": "15:30", "currency": "USD", "event": "Crude Oil Inventories", "impact": "low"},
+        ],
+        [
+            {"time": "09:00", "currency": "EUR", "event": "ECB President Lagarde Speaks", "impact": "high"},
+            {"time": "10:00", "currency": "EUR", "event": "CPI y/y", "impact": "high"},
+            {"time": "13:30", "currency": "USD", "event": "CPI m/m", "impact": "high"},
+            {"time": "13:30", "currency": "USD", "event": "Core CPI m/m", "impact": "high"},
+            {"time": "19:00", "currency": "USD", "event": "FOMC Meeting Minutes", "impact": "high"},
+        ],
+        [
+            {"time": "07:00", "currency": "GBP", "event": "GDP m/m", "impact": "high"},
+            {"time": "07:00", "currency": "GBP", "event": "Manufacturing Production m/m", "impact": "medium"},
+            {"time": "13:30", "currency": "USD", "event": "Empire State Manufacturing Index", "impact": "medium"},
+            {"time": "15:00", "currency": "USD", "event": "NAHB Housing Market Index", "impact": "medium"},
+            {"time": "15:30", "currency": "USD", "event": "Crude Oil Inventories", "impact": "low"},
+        ],
+        [
+            {"time": "08:00", "currency": "EUR", "event": "German ZEW Economic Sentiment", "impact": "high"},
+            {"time": "10:00", "currency": "EUR", "event": "Trade Balance", "impact": "medium"},
+            {"time": "13:30", "currency": "USD", "event": "Import Prices m/m", "impact": "low"},
+            {"time": "15:00", "currency": "USD", "event": "Existing Home Sales", "impact": "medium"},
+            {"time": "15:30", "currency": "USD", "event": "EIA Natural Gas Storage", "impact": "low"},
+        ],
+    ]
+    
+    thursday_events_pool = [
+        [
+            {"time": "07:00", "currency": "EUR", "event": "Spanish Flash CPI y/y", "impact": "medium"},
+            {"time": "09:00", "currency": "EUR", "event": "ECB Economic Bulletin", "impact": "medium"},
+            {"time": "13:30", "currency": "USD", "event": "GDP q/q", "impact": "high"},
+            {"time": "13:30", "currency": "USD", "event": "Unemployment Claims", "impact": "high"},
+            {"time": "13:30", "currency": "USD", "event": "Core PCE Price Index q/q", "impact": "high"},
+            {"time": "15:00", "currency": "USD", "event": "Pending Home Sales m/m", "impact": "medium"},
+        ],
+        [
+            {"time": "08:45", "currency": "EUR", "event": "French Flash Manufacturing PMI", "impact": "medium"},
+            {"time": "08:55", "currency": "EUR", "event": "German Flash Manufacturing PMI", "impact": "high"},
+            {"time": "09:30", "currency": "GBP", "event": "Flash Manufacturing PMI", "impact": "high"},
+            {"time": "13:30", "currency": "USD", "event": "Unemployment Claims", "impact": "high"},
+            {"time": "14:45", "currency": "USD", "event": "Flash Manufacturing PMI", "impact": "high"},
+            {"time": "15:00", "currency": "USD", "event": "Existing Home Sales", "impact": "medium"},
+        ],
+        [
+            {"time": "12:00", "currency": "GBP", "event": "BOE Interest Rate Decision", "impact": "high"},
+            {"time": "12:00", "currency": "GBP", "event": "BOE MPC Meeting Minutes", "impact": "high"},
+            {"time": "13:30", "currency": "USD", "event": "Philly Fed Manufacturing Index", "impact": "medium"},
+            {"time": "13:30", "currency": "USD", "event": "Unemployment Claims", "impact": "high"},
+            {"time": "15:00", "currency": "USD", "event": "Leading Index m/m", "impact": "medium"},
+        ],
+        [
+            {"time": "09:00", "currency": "EUR", "event": "ECB Interest Rate Decision", "impact": "high"},
+            {"time": "09:45", "currency": "EUR", "event": "ECB Press Conference", "impact": "high"},
+            {"time": "13:30", "currency": "USD", "event": "Unemployment Claims", "impact": "high"},
+            {"time": "13:30", "currency": "USD", "event": "Current Account", "impact": "low"},
+            {"time": "15:00", "currency": "EUR", "event": "Consumer Confidence", "impact": "medium"},
+        ],
+    ]
+    
+    friday_events_pool = [
+        [
+            {"time": "00:30", "currency": "JPY", "event": "Tokyo Core CPI y/y", "impact": "high"},
+            {"time": "07:00", "currency": "GBP", "event": "Nationwide HPI m/m", "impact": "low"},
+            {"time": "09:00", "currency": "EUR", "event": "German Prelim CPI m/m", "impact": "high"},
+            {"time": "10:00", "currency": "EUR", "event": "CPI Flash Estimate y/y", "impact": "high"},
+            {"time": "10:00", "currency": "EUR", "event": "Core CPI Flash Estimate y/y", "impact": "high"},
+            {"time": "13:30", "currency": "USD", "event": "Core PCE Price Index m/m", "impact": "high"},
+            {"time": "13:30", "currency": "USD", "event": "Personal Spending m/m", "impact": "medium"},
+            {"time": "14:45", "currency": "USD", "event": "Chicago PMI", "impact": "medium"},
+        ],
+        [
+            {"time": "07:00", "currency": "GBP", "event": "GfK Consumer Confidence", "impact": "medium"},
+            {"time": "07:00", "currency": "GBP", "event": "Retail Sales m/m", "impact": "high"},
+            {"time": "09:00", "currency": "EUR", "event": "German Unemployment Change", "impact": "high"},
+            {"time": "13:30", "currency": "USD", "event": "Non-Farm Employment Change", "impact": "high"},
+            {"time": "13:30", "currency": "USD", "event": "Unemployment Rate", "impact": "high"},
+            {"time": "13:30", "currency": "USD", "event": "Average Hourly Earnings m/m", "impact": "high"},
+            {"time": "15:00", "currency": "USD", "event": "ISM Manufacturing PMI", "impact": "high"},
+        ],
+        [
+            {"time": "07:00", "currency": "EUR", "event": "German Retail Sales m/m", "impact": "medium"},
+            {"time": "09:00", "currency": "EUR", "event": "Unemployment Rate", "impact": "high"},
+            {"time": "10:00", "currency": "EUR", "event": "GDP q/q", "impact": "high"},
+            {"time": "13:30", "currency": "CAD", "event": "GDP m/m", "impact": "high"},
+            {"time": "15:00", "currency": "USD", "event": "UoM Consumer Sentiment", "impact": "medium"},
+            {"time": "15:00", "currency": "USD", "event": "UoM Inflation Expectations", "impact": "medium"},
+        ],
+        [
+            {"time": "08:00", "currency": "EUR", "event": "Spanish Manufacturing PMI", "impact": "medium"},
+            {"time": "08:45", "currency": "EUR", "event": "Italian Manufacturing PMI", "impact": "medium"},
+            {"time": "08:50", "currency": "EUR", "event": "French Final Manufacturing PMI", "impact": "medium"},
+            {"time": "09:30", "currency": "GBP", "event": "Final Manufacturing PMI", "impact": "medium"},
+            {"time": "13:30", "currency": "USD", "event": "Trade Balance", "impact": "medium"},
+            {"time": "15:00", "currency": "USD", "event": "ISM Non-Manufacturing PMI", "impact": "high"},
+        ],
+    ]
+    
+    # Select events based on week number (rotates through the pools)
+    monday_events = monday_events_pool[week_number % len(monday_events_pool)]
+    tuesday_events = tuesday_events_pool[week_number % len(tuesday_events_pool)]
+    wednesday_events = wednesday_events_pool[week_number % len(wednesday_events_pool)]
+    thursday_events = thursday_events_pool[week_number % len(thursday_events_pool)]
+    friday_events = friday_events_pool[week_number % len(friday_events_pool)]
+    
+    all_day_events = [
+        (0, monday_events),
+        (1, tuesday_events),
+        (2, wednesday_events),
+        (3, thursday_events),
+        (4, friday_events),
     ]
     
     events = []
-    for item in sample_events:
-        event_date = (week_start + timedelta(days=item["day"])).strftime("%Y-%m-%d")
-        events.append({
-            "id": str(uuid.uuid4()),
-            "date": event_date,
-            "time": item["time"],
-            "currency": item["currency"],
-            "impact": item["impact"],
-            "event": item["event"],
-            "actual": None,
-            "forecast": item.get("forecast"),
-            "previous": item.get("previous"),
-            "source": "forexfactory"
-        })
+    for day_offset, day_events in all_day_events:
+        event_date = (week_start + timedelta(days=day_offset)).strftime("%Y-%m-%d")
+        for item in day_events:
+            events.append({
+                "id": str(uuid.uuid4()),
+                "date": event_date,
+                "time": item["time"],
+                "currency": item["currency"],
+                "impact": item["impact"],
+                "event": item["event"],
+                "actual": None,
+                "forecast": None,
+                "previous": None,
+                "source": "forexfactory"
+            })
     
-    logger.info(f"Generated {len(events)} sample calendar events")
+    logger.info(f"Generated {len(events)} dynamic calendar events for week {week_number} starting {week_start.strftime('%Y-%m-%d')}")
     return events
 
 async def fetch_trading_economics_events(date_from: str, date_to: str) -> List[dict]:
