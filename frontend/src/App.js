@@ -56,7 +56,7 @@ const ImpactBadge = ({ impact }) => {
 // Source Badge Component
 const SourceBadge = ({ source }) => {
   const isFF = source === "forexfactory";
-  const isTE = source === "tradingeconomics";
+  const isTE = source === "tradingeconomics" || source === "tradingeconomics_fallback";
   
   let className = "source-ff";  // Default ForexFactory orange
   let label = "FF";
@@ -77,9 +77,35 @@ const SourceBadge = ({ source }) => {
 };
 
 // Header Component
-const Header = ({ dataStatus }) => (
-  <header className="header-glass px-6 py-4" data-testid="header">
-    <div className="max-w-7xl mx-auto flex items-center justify-between">
+const Header = ({ dataStatus, roNow }) => {
+  const lastFetchText = dataStatus?.last_fetch
+    ? formatDistanceToNow(parseISO(dataStatus.last_fetch), { addSuffix: true })
+    : "never";
+
+  const roTimeNow = new Intl.DateTimeFormat("ro-RO", {
+    timeZone: "Europe/Bucharest",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false
+  }).format(roNow);
+
+  const lastFetchRoTime = dataStatus?.last_fetch
+    ? new Intl.DateTimeFormat("ro-RO", {
+        timeZone: "Europe/Bucharest",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false
+      }).format(parseISO(dataStatus.last_fetch))
+    : "n/a";
+
+  return (
+    <header className="header-glass px-6 py-4" data-testid="header">
+      <div className="max-w-7xl mx-auto flex items-center justify-between">
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-lg bg-indigo-600 flex items-center justify-center signal-trade">
           <BarChart3 size={22} className="text-white" />
@@ -101,10 +127,17 @@ const Header = ({ dataStatus }) => (
             {dataStatus?.is_live ? "Live Data" : "Sample Data"}
           </span>
         </div>
+        <div className="text-right">
+          <p className="text-[11px] text-zinc-500">RO {roTimeNow}</p>
+          <p className="text-[11px] text-zinc-500">Last calendar update {lastFetchText}</p>
+          <p className="text-[10px] text-zinc-600">{lastFetchRoTime} (Europe/Bucharest)</p>
+          <p className="text-[10px] text-zinc-600">Auto refresh {dataStatus?.refresh_interval_minutes || 30}m</p>
+        </div>
       </div>
     </div>
-  </header>
-);
+    </header>
+  );
+};
 
 // AI Analysis Card Component
 const AIAnalysisCard = ({ analysis, loading, onRefresh }) => {
@@ -560,6 +593,7 @@ function App() {
   const [events, setEvents] = useState([]);
   const [news, setNews] = useState([]);
   const [dataStatus, setDataStatus] = useState({ is_live: false, data_source: "loading" });
+  const [roNow, setRoNow] = useState(new Date());
   
   const [loadingAnalysis, setLoadingAnalysis] = useState(false);
   const [loadingWeek, setLoadingWeek] = useState(false);
@@ -649,6 +683,25 @@ function App() {
     fetchNews();
   }, []);
 
+  // Keep status fresh in UI (for "last update" timer text)
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      fetchDataStatus();
+    }, 60 * 1000);
+
+    return () => clearInterval(intervalId);
+  }, [fetchDataStatus]);
+
+
+
+  // RO clock in header
+  useEffect(() => {
+    const clockId = setInterval(() => {
+      setRoNow(new Date());
+    }, 1000);
+
+    return () => clearInterval(clockId);
+  }, []);
   // Fetch events when filters change
   useEffect(() => {
     // If weekend (Sat=6, Sun=0), use next week's Monday
@@ -703,7 +756,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-zinc-950 grid-texture" data-testid="app-container">
-      <Header dataStatus={dataStatus} />
+      <Header dataStatus={dataStatus} roNow={roNow} />
       <Toaster position="top-right" />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
