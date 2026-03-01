@@ -33,8 +33,9 @@ api_router = APIRouter(prefix="/api")
 calendar_cache: Dict[str, Any] = {
     "data": [],
     "last_fetch": None,
-    "cache_duration": 300,  # 5 minutes
-    "data_source": "sample"  # "live" or "sample"
+    "cache_duration": 60,  # 1 minute cache - refreshes frequently
+    "data_source": "sample",
+    "week_start": None  # Track which week the cache is for
 }
 
 # Configure logging
