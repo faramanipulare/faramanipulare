@@ -106,6 +106,11 @@ async def fetch_forexfactory_events(date_from: str, date_to: str) -> List[dict]:
     
     # Check cache validity
     now = datetime.now(timezone.utc)
+    
+    # Calculate current week dates for validation
+    current_week_start = (now - timedelta(days=now.weekday())).strftime("%Y-%m-%d")
+    current_week_end = (now + timedelta(days=(4 - now.weekday()))).strftime("%Y-%m-%d")
+    
     if (calendar_cache["last_fetch"] and 
         calendar_cache["data"] and
         (now - calendar_cache["last_fetch"]).total_seconds() < calendar_cache["cache_duration"]):
@@ -129,6 +134,8 @@ async def fetch_forexfactory_events(date_from: str, date_to: str) -> List[dict]:
                 
                 if response.status_code == 200:
                     raw_data = response.json()
+                    api_dates = set()
+                    
                     for item in raw_data:
                         event_date = item.get("date", "")
                         if event_date:
@@ -137,6 +144,7 @@ async def fetch_forexfactory_events(date_from: str, date_to: str) -> List[dict]:
                                 parsed_date = dt.fromisoformat(event_date.replace('Z', '+00:00'))
                                 date_str = parsed_date.strftime("%Y-%m-%d")
                                 time_str = parsed_date.strftime("%H:%M")
+                                api_dates.add(date_str)
                             except Exception:
                                 date_str = event_date[:10] if len(event_date) >= 10 else event_date
                                 time_str = ""
@@ -164,11 +172,22 @@ async def fetch_forexfactory_events(date_from: str, date_to: str) -> List[dict]:
                             "source": "forexfactory"
                         })
                     
-                    # Update cache
-                    calendar_cache["data"] = all_data
-                    calendar_cache["last_fetch"] = now
-                    calendar_cache["data_source"] = "live"
-                    logger.info(f"Fetched and cached {len(all_data)} events from ForexFactory")
+                    # Check if API data is for current week
+                    is_current_week = any(current_week_start <= d <= current_week_end for d in api_dates)
+                    
+                    if is_current_week and len(all_data) > 0:
+                        # Data is fresh and current
+                        calendar_cache["data"] = all_data
+                        calendar_cache["last_fetch"] = now
+                        calendar_cache["data_source"] = "live"
+                        logger.info(f"Fetched and cached {len(all_data)} LIVE events from ForexFactory")
+                    else:
+                        # API returned old/stale data - use sample data for current week
+                        logger.warning(f"API data is stale (dates: {api_dates}), using current week sample data")
+                        all_data = generate_sample_calendar_data()
+                        calendar_cache["data"] = all_data
+                        calendar_cache["last_fetch"] = now
+                        calendar_cache["data_source"] = "sample"
                 else:
                     logger.warning(f"ForexFactory API returned {response.status_code}, using sample data")
                     # Provide sample economic calendar data when API is rate-limited
