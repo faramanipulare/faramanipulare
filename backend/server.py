@@ -597,8 +597,14 @@ async def get_week_overview(
     """Get trading overview for an entire week"""
     today = datetime.now(timezone.utc)
     
-    # Calculate week start (Monday)
-    week_start = today - timedelta(days=today.weekday()) + timedelta(weeks=week_offset)
+    # Calculate week start (Monday) - if weekend, start from next Monday
+    if today.weekday() >= 5:  # Weekend
+        days_until_monday = 7 - today.weekday()
+        base_monday = today + timedelta(days=days_until_monday)
+    else:
+        base_monday = today - timedelta(days=today.weekday())
+    
+    week_start = base_monday + timedelta(weeks=week_offset)
     week_end = week_start + timedelta(days=4)  # Friday
     
     date_from = week_start.strftime("%Y-%m-%d")
