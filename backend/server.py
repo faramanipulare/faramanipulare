@@ -219,9 +219,21 @@ async def fetch_forexfactory_events(date_from: str, date_to: str) -> List[dict]:
 
 
 def generate_sample_calendar_data() -> List[dict]:
-    """Generate realistic sample economic calendar data for demonstration"""
+    """Generate realistic sample economic calendar data for the current/next trading week"""
     today = datetime.now(timezone.utc)
-    week_start = today - timedelta(days=today.weekday())
+    
+    # If it's Saturday (5) or Sunday (6), use next week's Monday
+    # Otherwise use current week's Monday
+    if today.weekday() >= 5:  # Weekend
+        # Move to next Monday
+        days_until_monday = 7 - today.weekday()
+        week_start = today + timedelta(days=days_until_monday)
+    else:
+        # Current week's Monday
+        week_start = today - timedelta(days=today.weekday())
+    
+    # Reset time to start of day
+    week_start = week_start.replace(hour=0, minute=0, second=0, microsecond=0)
     
     # Major economic events that affect indices and forex
     sample_events = [
