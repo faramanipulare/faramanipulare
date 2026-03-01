@@ -651,8 +651,21 @@ function App() {
 
   // Fetch events when filters change
   useEffect(() => {
-    const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
-    const offsetWeekStart = addDays(weekStart, weekOffset * 7);
+    // If weekend (Sat=6, Sun=0), use next week's Monday
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0=Sun, 6=Sat
+    
+    let baseMonday;
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      // Weekend - use next Monday
+      const daysUntilMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+      baseMonday = addDays(today, daysUntilMonday);
+    } else {
+      // Weekday - use this week's Monday
+      baseMonday = startOfWeek(today, { weekStartsOn: 1 });
+    }
+    
+    const offsetWeekStart = addDays(baseMonday, weekOffset * 7);
     const weekEnd = addDays(offsetWeekStart, 4);
     
     fetchEvents(
