@@ -194,6 +194,7 @@ async def fetch_forexfactory_events(date_from: str, date_to: str) -> List[dict]:
                         calendar_cache["data"] = all_data
                         calendar_cache["last_fetch"] = now
                         calendar_cache["data_source"] = "live"
+                        calendar_cache["week_start"] = current_week_start
                         logger.info(f"Fetched and cached {len(all_data)} LIVE events from ForexFactory")
                     else:
                         # API returned old/stale data - use sample data for current week
@@ -202,6 +203,7 @@ async def fetch_forexfactory_events(date_from: str, date_to: str) -> List[dict]:
                         calendar_cache["data"] = all_data
                         calendar_cache["last_fetch"] = now
                         calendar_cache["data_source"] = "sample"
+                        calendar_cache["week_start"] = current_week_start
                 else:
                     logger.warning(f"ForexFactory API returned {response.status_code}, using sample data")
                     # Provide sample economic calendar data when API is rate-limited
@@ -209,6 +211,7 @@ async def fetch_forexfactory_events(date_from: str, date_to: str) -> List[dict]:
                     calendar_cache["data"] = all_data
                     calendar_cache["last_fetch"] = now
                     calendar_cache["data_source"] = "sample"
+                    calendar_cache["week_start"] = current_week_start
         except Exception as e:
             logger.error(f"Error fetching ForexFactory: {e}")
             # Fallback to sample data
@@ -216,6 +219,7 @@ async def fetch_forexfactory_events(date_from: str, date_to: str) -> List[dict]:
             calendar_cache["data"] = all_data
             calendar_cache["last_fetch"] = now
             calendar_cache["data_source"] = "sample"
+            calendar_cache["week_start"] = current_week_start
     
     # Filter by date range if specified
     events = []
