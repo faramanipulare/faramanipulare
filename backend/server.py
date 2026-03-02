@@ -358,6 +358,16 @@ async def fetch_investing_events(date_from: str, date_to: str) -> List[dict]:
     return await asyncio.to_thread(_fetch_in_thread)
 
 
+def get_sample_events_for_range(date_from: str, date_to: str) -> List[dict]:
+    """Return sample events filtered to requested range to keep API non-empty on provider failures."""
+    sample = generate_sample_calendar_data()
+    return [
+        {**event, "id": str(uuid.uuid4())}
+        for event in sample
+        if date_from <= event.get("date", "") <= date_to
+    ]
+
+
 def generate_sample_calendar_data() -> List[dict]:
     """Generate dynamic economic calendar data that changes each week"""
     today = datetime.now(timezone.utc)
@@ -640,12 +650,27 @@ async def refresh_calendar_sources(date_from: str, date_to: str) -> List[dict]:
     if not investing_events:
         fallback_events = await fetch_tradingeconomics_fallback_events(date_from, date_to)
 
+    combined_events = ff_events + investing_events + fallback_events
+    if combined_events:
+        if investing_events:
+            calendar_cache["data_source"] = "live_multi"
+        elif fallback_events:
+            calendar_cache["data_source"] = "live_fallback"
+        elif ff_events:
+            calendar_cache["data_source"] = "live"
+    else:
+        combined_events = get_sample_events_for_range(date_from, date_to)
+        calendar_cache["data_source"] = "sample"
+
+    calendar_cache["data"] = combined_events
+    calendar_cache["last_fetch"] = datetime.now(timezone.utc)
+
     calendar_cache["last_source_refresh"] = {
         "forexfactory": refresh_ts if ff_events else None,
         "investing": refresh_ts if investing_events else None,
         "fallback": refresh_ts if fallback_events else None
     }
-    return ff_events + investing_events + fallback_events
+    return combined_events
 
 
 async def auto_refresh_calendar() -> None:

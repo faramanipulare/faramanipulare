@@ -29,7 +29,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
 const API = `${BACKEND_URL}/api`;
 
 // Signal Icon Component
@@ -78,9 +78,14 @@ const SourceBadge = ({ source }) => {
 
 // Header Component
 const Header = ({ dataStatus, roNow }) => {
-  const lastFetchText = dataStatus?.last_fetch
-    ? formatDistanceToNow(parseISO(dataStatus.last_fetch), { addSuffix: true })
-    : "never";
+  const lastFetchText = (() => {
+    if (!dataStatus?.last_fetch) return "never";
+    try {
+      return formatDistanceToNow(parseISO(dataStatus.last_fetch), { addSuffix: true });
+    } catch {
+      return "invalid";
+    }
+  })();
 
   const roTimeNow = new Intl.DateTimeFormat("ro-RO", {
     timeZone: "Europe/Bucharest",
@@ -90,8 +95,10 @@ const Header = ({ dataStatus, roNow }) => {
     hour12: false
   }).format(roNow);
 
-  const lastFetchRoTime = dataStatus?.last_fetch
-    ? new Intl.DateTimeFormat("ro-RO", {
+  const lastFetchRoTime = (() => {
+    if (!dataStatus?.last_fetch) return "n/a";
+    try {
+      return new Intl.DateTimeFormat("ro-RO", {
         timeZone: "Europe/Bucharest",
         day: "2-digit",
         month: "2-digit",
@@ -100,8 +107,11 @@ const Header = ({ dataStatus, roNow }) => {
         minute: "2-digit",
         second: "2-digit",
         hour12: false
-      }).format(parseISO(dataStatus.last_fetch))
-    : "n/a";
+      }).format(parseISO(dataStatus.last_fetch));
+    } catch {
+      return "n/a";
+    }
+  })();
 
   return (
     <header className="header-glass px-6 py-4" data-testid="header">
