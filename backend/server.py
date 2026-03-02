@@ -569,10 +569,11 @@ def generate_sample_calendar_data() -> List[dict]:
     for day_offset, day_events in all_day_events:
         event_date = (week_start + timedelta(days=day_offset)).strftime("%Y-%m-%d")
         for item in day_events:
+            ro_date, ro_time = normalize_event_to_romania_time(event_date, item["time"], assume_utc=False)
             events.append({
                 "id": str(uuid.uuid4()),
-                "date": event_date,
-                "time": item["time"],
+                "date": ro_date,
+                "time": ro_time,
                 "currency": item["currency"],
                 "impact": item["impact"],
                 "event": item["event"],
@@ -1057,6 +1058,8 @@ async def data_status():
         "event_count": len(calendar_cache.get("data", [])),
         "is_live": calendar_cache.get("data_source") in {"live", "live_multi", "live_fallback"},
         "refresh_interval_minutes": AUTO_REFRESH_MINUTES,
+        "source_refresh": calendar_cache.get("last_source_refresh", {}),
+        "display_timezone": "Europe/Bucharest"
         "source_refresh": calendar_cache.get("last_source_refresh", {})
     }
 
