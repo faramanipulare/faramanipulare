@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import "@/App.css";
+import "App.css";
 import axios from "axios";
 import { format, addDays, startOfWeek, parseISO, formatDistanceToNow } from "date-fns";
 import { 
@@ -20,13 +20,13 @@ import {
   Newspaper,
   ExternalLink
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Toaster } from "@/components/ui/sonner";
+import { Button } from "components/ui/button";
+import { Badge } from "components/ui/badge";
+import { Calendar } from "components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "components/ui/popover";
+import { ScrollArea } from "components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "components/ui/tabs";
+import { Toaster } from "components/ui/sonner";
 import { toast } from "sonner";
 
 const RAW_BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
