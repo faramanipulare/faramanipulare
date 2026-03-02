@@ -29,7 +29,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
+const RAW_BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL = (
+  RAW_BACKEND_URL &&
+  !["undefined", "null", ""].includes(String(RAW_BACKEND_URL).toLowerCase())
+)
+  ? String(RAW_BACKEND_URL).replace(/\/$/, "")
+  : (typeof window !== "undefined" ? window.location.origin : "");
 const API = `${BACKEND_URL}/api`;
 
 // Signal Icon Component
