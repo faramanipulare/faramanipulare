@@ -14,16 +14,24 @@ from bs4 import BeautifulSoup
 import asyncio
 from groq import Groq
 import json
+try:
+    import investpy
+except Exception:
+    investpy = None
 import investpy
 from zoneinfo import ZoneInfo
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# MongoDB connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+# MongoDB connection (optional for local/dev runs)
+mongo_url = os.environ.get('MONGO_URL')
+db_name = os.environ.get('DB_NAME', 'tradesignal')
+client: Optional[AsyncIOMotorClient] = None
+db = None
+if mongo_url:
+    client = AsyncIOMotorClient(mongo_url)
+    db = client[db_name]
 
 # Create the main app without a prefix
 app = FastAPI()
@@ -292,6 +300,9 @@ async def fetch_forexfactory_events(date_from: str, date_to: str) -> List[dict]:
 
 async def fetch_investing_events(date_from: str, date_to: str) -> List[dict]:
     """Fetch economic calendar events from Investing.com through investpy."""
+    if investpy is None:
+        logger.warning("investpy is not installed; skipping Investing.com source")
+        return []
     try:
         from_date = datetime.strptime(date_from, "%Y-%m-%d").strftime("%d/%m/%Y")
         to_date = datetime.strptime(date_to, "%Y-%m-%d").strftime("%d/%m/%Y")
@@ -651,6 +662,7 @@ async def refresh_calendar_sources(date_from: str, date_to: str) -> List[dict]:
         fallback_events = await fetch_tradingeconomics_fallback_events(date_from, date_to)
 
     combined_events = ff_events + investing_events + fallback_events
+
     if combined_events:
         if investing_events:
             calendar_cache["data_source"] = "live_multi"
@@ -1151,6 +1163,8 @@ async def shutdown_db_client():
     global refresh_task
     if refresh_task and not refresh_task.done():
         refresh_task.cancel()
+    if client is not None:
+        client.close()
     client.close()
 diff --git a/backend/server.py b/backend/server.py
 index b0106ecae8e0de620cff567d1431e1bee4baa0d9..cc8aec6d2be2946770966a98135f2f2fa3ac04c9 100644
