@@ -60,6 +60,9 @@
     "start": "node scripts/react-scripts-runner.js start",
     "build": "node scripts/react-scripts-runner.js build",
     "test": "node scripts/react-scripts-runner.js test"
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test"
   },
   "browserslist": {
     "production": [
